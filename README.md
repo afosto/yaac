@@ -44,7 +44,7 @@ decide whether you want to issue `Fake LE Intermediate X1` (staging: `MODE_STAGI
 ```php
 use League\Flysystem\Filesystem;
 use League\Flysystem\Adapter\Local;
-use Afosto\LetsEncrypt\Client;
+use Afosto\Acme\Client;
  
 //Prepare flysystem
 $adapter = new Local('data');

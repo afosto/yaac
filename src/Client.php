@@ -1,12 +1,12 @@
 <?php
 
-namespace Afosto\LetsEncrypt;
+namespace Afosto\Acme;
 
-use Afosto\LetsEncrypt\Data\Account;
-use Afosto\LetsEncrypt\Data\Authorization;
-use Afosto\LetsEncrypt\Data\Certificate;
-use Afosto\LetsEncrypt\Data\Challenge;
-use Afosto\LetsEncrypt\Data\Order;
+use Afosto\Acme\Data\Account;
+use Afosto\Acme\Data\Authorization;
+use Afosto\Acme\Data\Certificate;
+use Afosto\Acme\Data\Challenge;
+use Afosto\Acme\Data\Order;
 use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\ClientException;
 use League\Flysystem\Filesystem;

@@ -1,8 +1,8 @@
 <?php
 
-namespace Afosto\LetsEncrypt;
+namespace Afosto\Acme;
 
-use Afosto\LetsEncrypt\Data\Authorization;
+use Afosto\Acme\Data\Authorization;
 use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\ClientException;
 

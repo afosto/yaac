@@ -1,7 +1,7 @@
 <?php
 
 
-namespace Afosto\LetsEncrypt\Data;
+namespace Afosto\Acme\Data;
 
 class Order
 {

@@ -1,8 +1,8 @@
 <?php
 
-namespace Afosto\LetsEncrypt\Data;
+namespace Afosto\Acme\Data;
 
-use Afosto\LetsEncrypt\Helper;
+use Afosto\Acme\Helper;
 
 class Certificate
 {
