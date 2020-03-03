@@ -284,7 +284,7 @@ class Client
             );
             $data = json_decode((string)$response->getBody(), true);
             sleep(1);
-        } while ($maxAttempts < 0 && $data['status'] == 'pending');
+        } while ($maxAttempts > 0 && $data['status'] == 'pending');
 
         return (isset($data['status']) && $data['status'] == 'valid');
     }
