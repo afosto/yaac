@@ -286,7 +286,7 @@ class Client
             sleep(1);
         } while ($maxAttempts < 0 && $data['status'] == 'pending');
 
-        return (isset($data['status']) && $data['status'] == 'ready');
+        return (isset($data['status']) && $data['status'] == 'valid');
     }
 
     /**
