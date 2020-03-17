@@ -116,6 +116,53 @@ foreach ($authorizations as $authorization) {
 The method above will perform 15 attempts to ask LetsEncrypt to validate the challenge (with 1 second intervals) and
 retrieve an updated status (it might take Lets Encrypt a few seconds to validate the challenge).
 
+### Alternative ownership validation via DNS
+
+You can also use DNS validation - to do this, you will need access to an API for your DNS 
+provider to create TXT records for the target domains.
+
+```php
+
+//store a map of domain=>TXT record we can use to wait with
+$dnsRecords[];
+
+foreach ($authorizations as $authorization) {
+    $challenge = $authorization->getDnsChallenge();
+
+    $txtRecord = $authorization->getTxtRecord($challenge);
+    
+    $domain=$authorization->getDomain();
+    $validationDomain='_acme-challenge.'.$domain;
+    
+    //remember the record we're about to set
+    $dnsRecords[$validationDomain] = $txtRecord;
+
+    //set TXT record for $validationDomain to $txtRecord value  
+    //--
+    //-- you need to add code for your DNS provider here 
+    //--
+}
+```
+
+A helper is included which will allow you to wait until you can see the
+DNS changes before asking Let's Encrypt to validate it, e.g.
+
+```php
+//wait up to 60 seconds for all our DNS updates to propagate
+if (!Helper::waitForDNS($dnsRecords, 60)) {
+    throw new \Exception('Unable to verify TXT record update');
+}
+```
+
+Once this passes we can ask Let's Encrypt to do the same...
+
+```php
+foreach ($authorizations as $authorization) {
+    $ok = $client->validate($authorization->getDnsChallenge(), 15);
+}
+```
+
+
 ### Get the certificate
 
 Now to know if validation was successful, test if the order is ready as follows:

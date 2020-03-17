@@ -3,6 +3,7 @@
 namespace Afosto\Acme\Data;
 
 use Afosto\Acme\Client;
+use Afosto\Acme\Helper;
 
 class Authorization
 {
@@ -79,6 +80,20 @@ class Authorization
     }
 
     /**
+     * @return Challenge|bool
+     */
+    public function getDnsChallenge()
+    {
+        foreach ($this->getChallenges() as $challenge) {
+            if ($challenge->getType() == Client::VALIDATION_DNS) {
+                return $challenge;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param Challenge $challenge
      * @return File|bool
      */
@@ -89,5 +104,16 @@ class Authorization
             return $file;
         }
         return false;
+    }
+
+    /**
+     * @param Challenge $challenge
+     * @return string containing TXT record for DNS challenge
+     */
+    public function getTxtRecord(Challenge $challenge)
+    {
+        $raw=$challenge->getToken() . '.' . $this->digest;
+        $hash=hash('sha256', $raw, true);
+        return Helper::toSafeString($hash);
     }
 }
