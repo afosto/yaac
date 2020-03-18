@@ -107,11 +107,14 @@ challenge.
 
 ```php
 foreach ($authorizations as $authorization) {
-    $client->validate($authorization->getHttpChallenge(), 15);
+    if ($client->selfTest($authorization, Client::VALIDATION_HTTP)) {
+        $client->validate($authorization->getHttpChallenge(), 15);
+    }
+   
 }
 ```
 
-The method above will perform 15 attempts to ask LetsEncrypt to validate the challenge (with 1 second intervals) and
+The code above will first perform a self test and, if successful, will do 15 attempts to ask LetsEncrypt to validate the challenge (with 1 second intervals) and
 retrieve an updated status (it might take Lets Encrypt a few seconds to validate the challenge).
 
 ### Get the certificate
