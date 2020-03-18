@@ -267,6 +267,8 @@ class Client
     {
         if ($type == self::VALIDATION_HTTP) {
             return $this->selfHttpTest($authorization, $maxAttempts);
+        } elseif ($type == self::VALIDATION_DNS) {
+            return $this->selfDNSTest($authorization, $maxAttempts);
         }
     }
 
@@ -394,27 +396,71 @@ class Client
      */
     protected function selfHttpTest(Authorization $authorization, $maxAttempts)
     {
-        $file = $authorization->getFile();
-        $authorization->getDomain();
         do {
             $maxAttempts--;
-
             try {
                 $response = $this->getSelfTestClient()->request(
                     'GET',
-                    'http://' . $authorization->getDomain() . '/.well-known/acme-challenge/' . $file->getFilename()
+                    'http://' . $authorization->getDomain() . '/.well-known/acme-challenge/' .
+                    $authorization->getFile()->getFilename()
                 );
                 $contents = (string)$response->getBody();
-                if ($contents == $file->getContents()) {
-                    {
-                        return true;
-                    }
+                if ($contents == $authorization->getFile()->getContents()) {
+                    return true;
                 }
             } catch (RequestException $e) {
             }
         } while ($maxAttempts > 0);
 
         return false;
+    }
+
+    /**
+     * Self DNS test client that uses Cloudflare's DNS API
+     * @param Authorization $authorization
+     * @param $maxAttempts
+     * @return bool
+     */
+    protected function selfDNSTest(Authorization $authorization, $maxAttempts)
+    {
+        do {
+            $response = $this->getSelfTestDNSClient()->get(
+                '/dns-query',
+                [
+                    'query' => [
+                        'name' => $authorization->getTxtRecord()->getName(),
+                        'type' => 'TXT'
+                    ]
+                ]
+            );
+            $data = json_decode((string)$response->getBody(), true);
+            if (isset($data['Answer'])) {
+                foreach ($data['Answer'] as $result) {
+                    if (trim($result['data'], "\"") == $authorization->getTxtRecord()->getValue()) {
+                        return true;
+                    }
+                }
+            }
+            sleep(ceil(30 / $maxAttempts));
+            $maxAttempts--;
+        } while ($maxAttempts > 0);
+
+        return false;
+    }
+
+    /**
+     * Return the preconfigured client to call Cloudflare's DNS API
+     * @return HttpClient
+     */
+    protected function getSelfTestDNSClient()
+    {
+        return new HttpClient([
+            'base_uri' => 'https://cloudflare-dns.com',
+            'connect_timeout' => 10,
+            'headers' => [
+                'Accept' => 'application/dns-json',
+            ],
+        ]);
     }
 
     /**

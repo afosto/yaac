@@ -122,13 +122,20 @@ class Authorization
     }
 
     /**
+     * Returns the DNS record object
+     *
      * @param Challenge $challenge
-     * @return string containing TXT record for DNS challenge
+     * @return Record|bool
      */
-    public function getTxtRecord(Challenge $challenge)
+    public function getTxtRecord()
     {
-        $raw=$challenge->getToken() . '.' . $this->digest;
-        $hash=hash('sha256', $raw, true);
-        return Helper::toSafeString($hash);
+        $challenge = $this->getDnsChallenge();
+        if ($challenge !== false) {
+            $hash = hash('sha256', $challenge->getToken() . '.' . $this->digest, true);
+            $value = Helper::toSafeString($hash);
+            return new Record('_acme-challenge.' . $this->getDomain(), $value);
+        }
+
+        return false;
     }
 }
