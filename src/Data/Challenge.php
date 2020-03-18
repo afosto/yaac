@@ -48,6 +48,7 @@ class Challenge
     }
 
     /**
+     * Get the URL for the challenge
      * @return string
      */
     public function getUrl(): string
@@ -56,6 +57,7 @@ class Challenge
     }
 
     /**
+     * Returns challenge type (DNS or HTTP)
      * @return string
      */
     public function getType(): string
@@ -64,6 +66,7 @@ class Challenge
     }
 
     /**
+     * Returns the token
      * @return string
      */
     public function getToken(): string
@@ -71,11 +74,19 @@ class Challenge
         return $this->token;
     }
 
+    /**
+     * Returns the status
+     * @return string
+     */
     public function getStatus(): string
     {
         return $this->status;
     }
 
+    /**
+     * Returns authorization URL
+     * @return string
+     */
     public function getAuthorizationURL(): string
     {
         return $this->authorizationURL;

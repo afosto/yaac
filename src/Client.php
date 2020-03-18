@@ -9,8 +9,8 @@ use Afosto\Acme\Data\Challenge;
 use Afosto\Acme\Data\Order;
 use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\RequestException;
 use League\Flysystem\Filesystem;
-use LEClient\LEFunctions;
 use Psr\Http\Message\ResponseInterface;
 
 class Client
@@ -119,12 +119,6 @@ class Client
     public function __construct($config = [])
     {
         $this->config = $config;
-        $this->httpClient = new HttpClient([
-            'base_uri' => (
-            ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
-                self::DIRECTORY_LIVE : self::DIRECTORY_STAGING),
-        ]);
-
         if ($this->getOption('fs', false)) {
             $this->filesystem = $this->getOption('fs');
         } else {
@@ -137,7 +131,6 @@ class Client
 
         $this->init();
     }
-
 
     /**
      * Get an existing order by ID
@@ -160,7 +153,7 @@ class Client
 
         return new Order(
             $domains,
-            $response->getHeaderLine('location'),
+            $url,
             $data['status'],
             $data['expires'],
             $data['identifiers'],
@@ -196,7 +189,7 @@ class Client
         foreach ($domains as $domain) {
             $identifiers[] =
                 [
-                    'type'  => 'dns',
+                    'type' => 'dns',
                     'value' => $domain,
                 ];
         }
@@ -259,6 +252,20 @@ class Client
     }
 
     /**
+     * Run a self-test for the authorization
+     * @param Authorization $authorization
+     * @param string $type
+     * @param int $maxAttempts
+     * @return bool
+     */
+    public function selfTest(Authorization $authorization, $type = self::VALIDATION_HTTP, $maxAttempts = 15): bool
+    {
+        if ($type == self::VALIDATION_HTTP) {
+            return $this->selfHttpTest($authorization, $maxAttempts);
+        }
+    }
+
+    /**
      * Validate a challenge
      *
      * @param Challenge $challenge
@@ -277,14 +284,14 @@ class Client
 
         $data = [];
         do {
-            $maxAttempts--;
             $response = $this->request(
                 $challenge->getAuthorizationURL(),
                 $this->signPayloadKid(null, $challenge->getAuthorizationURL())
             );
             $data = json_decode((string)$response->getBody(), true);
-            sleep(1);
-        } while ($maxAttempts > 0 && $data['status'] == 'pending');
+            sleep(ceil(15 / $maxAttempts));
+            $maxAttempts--;
+        } while ($maxAttempts > 0 && $data['status'] != 'valid');
 
         return (isset($data['status']) && $data['status'] == 'valid');
     }
@@ -345,12 +352,73 @@ class Client
     }
 
     /**
+     * Returns the ACME api configured Guzzle Client
+     * @return HttpClient
+     */
+    protected function getHttpClient()
+    {
+        if ($this->httpClient === null) {
+            $this->httpClient = new HttpClient([
+                'base_uri' => (
+                ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
+                    self::DIRECTORY_LIVE : self::DIRECTORY_STAGING),
+            ]);
+        }
+        return $this->httpClient;
+    }
+
+    /**
+     * Returns a Guzzle Client configured for self test
+     * @return HttpClient
+     */
+    protected function getSelfTestClient()
+    {
+        return new HttpClient([
+            'verify' => false,
+            'timeout' => 10,
+            'connect_timeout' => 3,
+            'allow_redirects' => true,
+        ]);
+    }
+
+    /**
+     * Self HTTP test
+     * @param Authorization $authorization
+     * @param $maxAttempts
+     * @return bool
+     */
+    protected function selfHttpTest(Authorization $authorization, $maxAttempts)
+    {
+        $file = $authorization->getFile();
+        $authorization->getDomain();
+        do {
+            $maxAttempts--;
+
+            try {
+                $response = $this->getSelfTestClient()->request(
+                    'GET',
+                    'http://' . $authorization->getDomain() . '/.well-known/acme-challenge/' . $file->getFilename()
+                );
+                $contents = (string)$response->getBody();
+                if ($contents == $file->getContents()) {
+                    {
+                        return true;
+                    }
+                }
+            } catch (RequestException $e) {
+            }
+        } while ($maxAttempts > 0);
+
+        return false;
+    }
+
+    /**
      * Initialize the client
      */
     protected function init()
     {
         //Load the directories from the LE api
-        $response = $this->httpClient->get('/directory');
+        $response = $this->getHttpClient()->get('/directory');
         $result = \GuzzleHttp\json_decode((string)$response->getBody(), true);
         $this->directories = $result;
 
@@ -388,7 +456,7 @@ class Client
             $this->getUrl(self::DIRECTORY_NEW_ACCOUNT),
             $this->signPayloadJWK(
                 [
-                    'contact'              => [
+                    'contact' => [
                         'mailto:' . $this->getOption('username'),
                     ],
                     'termsOfServiceAgreed' => true,
@@ -415,6 +483,7 @@ class Client
     }
 
     /**
+     * Return the Flysystem filesystem
      * @return Filesystem
      */
     protected function getFilesystem(): Filesystem
@@ -465,8 +534,8 @@ class Client
     protected function request($url, $payload = [], $method = 'POST'): ResponseInterface
     {
         try {
-            $response = $this->httpClient->request($method, $url, [
-                'json'    => $payload,
+            $response = $this->getHttpClient()->request($method, $url, [
+                'json' => $payload,
                 'headers' => [
                     'Content-Type' => 'application/jose+json',
                 ]
@@ -526,9 +595,9 @@ class Client
     protected function getJWKHeader(): array
     {
         return [
-            'e'   => Helper::toSafeString(Helper::getKeyDetails($this->getAccountKey())['rsa']['e']),
+            'e' => Helper::toSafeString(Helper::getKeyDetails($this->getAccountKey())['rsa']['e']),
             'kty' => 'RSA',
-            'n'   => Helper::toSafeString(Helper::getKeyDetails($this->getAccountKey())['rsa']['n']),
+            'n' => Helper::toSafeString(Helper::getKeyDetails($this->getAccountKey())['rsa']['n']),
         ];
     }
 
@@ -543,14 +612,14 @@ class Client
     {
         //Require a nonce to be available
         if ($this->nonce === null) {
-            $response = $this->httpClient->head($this->directories[self::DIRECTORY_NEW_NONCE]);
+            $response = $this->getHttpClient()->head($this->directories[self::DIRECTORY_NEW_NONCE]);
             $this->nonce = $response->getHeaderLine('replay-nonce');
         }
         return [
-            'alg'   => 'RS256',
-            'jwk'   => $this->getJWKHeader(),
+            'alg' => 'RS256',
+            'jwk' => $this->getJWKHeader(),
             'nonce' => $this->nonce,
-            'url'   => $url
+            'url' => $url
         ];
     }
 
@@ -563,14 +632,14 @@ class Client
      */
     protected function getKID($url): array
     {
-        $response = $this->httpClient->head($this->directories[self::DIRECTORY_NEW_NONCE]);
+        $response = $this->getHttpClient()->head($this->directories[self::DIRECTORY_NEW_NONCE]);
         $nonce = $response->getHeaderLine('replay-nonce');
 
         return [
-            "alg"   => "RS256",
-            "kid"   => $this->account->getAccountURL(),
+            "alg" => "RS256",
+            "kid" => $this->account->getAccountURL(),
             "nonce" => $nonce,
-            "url"   => $url
+            "url" => $url
         ];
     }
 
@@ -596,7 +665,7 @@ class Client
 
         return [
             'protected' => $protected,
-            'payload'   => $payload,
+            'payload' => $payload,
             'signature' => Helper::toSafeString($signature),
         ];
     }
@@ -622,7 +691,7 @@ class Client
 
         return [
             'protected' => $protected,
-            'payload'   => $payload,
+            'payload' => $payload,
             'signature' => Helper::toSafeString($signature),
         ];
     }

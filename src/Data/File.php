@@ -15,7 +15,11 @@ class File
      */
     protected $contents;
 
-
+    /**
+     * File constructor.
+     * @param string $filename
+     * @param string $contents
+     */
     public function __construct(string $filename, string $contents)
     {
         $this->contents = $contents;
@@ -23,6 +27,7 @@ class File
     }
 
     /**
+     * Return the filename for HTTP validation
      * @return string
      */
     public function getFilename(): string
@@ -31,6 +36,7 @@ class File
     }
 
     /**
+     * Return the file contents for HTTP validation
      * @return string
      */
     public function getContents(): string
