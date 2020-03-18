@@ -140,4 +140,37 @@ class Helper
 
         return $accountDetails;
     }
+
+    /**
+     * Wait until a set of DNS records return specific TXT record values
+     *
+     * @param array mapping domain to desired TXT record value
+     * @param $txtRecord
+     * @param int $maxSeconds to wait
+     * @return bool true if record found, false otherwise
+     */
+    public static function waitForDNS(array $records, $maxSeconds=60)
+    {
+        $waitUntil = time() + $maxSeconds;
+
+        do {
+            //validate all remaining records..
+            foreach($records as $domain=>$txtRecord) {
+                $record=dns_get_record($domain, DNS_TXT);
+                if (isset($record[0]['txt']) && ($record[0]['txt']===$txtRecord)) {
+                    unset($records[$domain]);
+                }
+            }
+
+            //did we find them all?
+            if (empty($records)) {
+                return true;
+            }
+
+            //otherwise still domains to check...have a short sleep
+            sleep(1);
+        } while(time() < $waitUntil);
+
+        return false;
+    }
 }

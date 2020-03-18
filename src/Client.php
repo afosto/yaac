@@ -56,6 +56,11 @@ class Client
     const VALIDATION_HTTP = 'http-01';
 
     /**
+     * DNS validation
+     */
+    const VALIDATION_DNS = 'dns-01';
+
+    /**
      * @var string
      */
     protected $nonce;
