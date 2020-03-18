@@ -6,6 +6,11 @@ use Afosto\Acme\Data\Authorization;
 use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\ClientException;
 
+/**
+ * Class Helper
+ * This class contains helper methods for certificate handling
+ * @package Afosto\Acme
+ */
 class Helper
 {
 

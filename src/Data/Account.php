@@ -31,6 +31,14 @@ class Account
     protected $accountURL;
 
 
+    /**
+     * Account constructor.
+     * @param array $contact
+     * @param \DateTime $createdAt
+     * @param bool $isValid
+     * @param string $initialIp
+     * @param string $accountURL
+     */
     public function __construct(
         array $contact,
         \DateTime $createdAt,
@@ -45,23 +53,35 @@ class Account
         $this->accountURL = $accountURL;
     }
 
+    /**
+     * Return the account ID
+     * @return string
+     */
     public function getId(): string
     {
         return substr($this->accountURL, strrpos($this->accountURL, '/') + 1);
     }
 
+    /**
+     * Return create date for the account
+     * @return \DateTime
+     */
     public function getCreatedAt(): \DateTime
     {
         return $this->createdAt;
     }
 
-
+    /**
+     * Return the URL for the account
+     * @return string
+     */
     public function getAccountURL(): string
     {
         return $this->accountURL;
     }
 
     /**
+     * Return contact data
      * @return array
      */
     public function getContact(): array
@@ -70,6 +90,7 @@ class Account
     }
 
     /**
+     * Return initial IP
      * @return string
      */
     public function getInitialIp(): string
@@ -78,6 +99,7 @@ class Account
     }
 
     /**
+     * Returns validation status
      * @return bool
      */
     public function isValid(): bool

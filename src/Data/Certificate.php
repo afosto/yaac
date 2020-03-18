@@ -43,6 +43,7 @@ class Certificate
     }
 
     /**
+     * Get the certificate signing request
      * @return string
      */
     public function getCsr(): string
@@ -51,6 +52,7 @@ class Certificate
     }
 
     /**
+     * Get the expiry date of the current certificate
      * @return \DateTime
      */
     public function getExpiryDate(): \DateTime
@@ -59,6 +61,7 @@ class Certificate
     }
 
     /**
+     * Return the certificate as a multi line string
      * @return string
      */
     public function getCertificate(): string
@@ -67,6 +70,7 @@ class Certificate
     }
 
     /**
+     * Return the private key as a multi line string
      * @return string
      */
     public function getPrivateKey(): string

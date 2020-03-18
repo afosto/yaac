@@ -1,6 +1,6 @@
 # yaac - Yet another ACME client
 
-Written in PHP, this client aims to be a decoupled LetsEncrypt client, based on ACME V2.
+Written in PHP, this client aims to be a simplified and decoupled LetsEncrypt client, based on ACME V2.
 
 ## Decoupled from a filesystem or webserver
 
@@ -9,7 +9,7 @@ data (the certificate and private key).
 
 ## Why
 
-Why whould I need this package? At Afosto we run our software in a multi tenant setup, as any other SaaS would do, and
+Why whould I need this package? At Afosto we run our software in a multi-tenant setup, as any other SaaS would do, and
 therefore we cannot make use of the many clients that are already out there. 
 
 Almost all clients are coupled to a type of webserver or a fixed (set of) domain(s). This package can be extremely 
@@ -92,9 +92,7 @@ Use the following example to get the HTTP validation going. First obtain the cha
 challenges accessible from 
 ```php
 foreach ($authorizations as $authorization) {
-    $challenge = $authorization->getHttpChallenge();
-
-    $file = $authorization->getFile($challenge);
+    $file = $authorization->getFile();
     file_put_contents($file->getFilename(), $file->getContents());   
 }
 ```
@@ -109,7 +107,7 @@ challenge.
 
 ```php
 foreach ($authorizations as $authorization) {
-    $ok = $client->validate($authorization->getHttpChallenge(), 15);
+    $client->validate($authorization->getHttpChallenge(), 15);
 }
 ```
 
@@ -118,7 +116,7 @@ retrieve an updated status (it might take Lets Encrypt a few seconds to validate
 
 ### Get the certificate
 
-Now to know if validation was successful, test if the order is ready as follows:
+Now to know if we can request a certificate for the order, test if the order is ready as follows:
 
 ```php
 if ($client->isReady($order)) {
@@ -138,3 +136,8 @@ We now have the certificate, to store it on the filesystem:
 file_put_contents('certificate.cert', $certificate->getCertificate());
 file_put_contents('private.key', $certificate->getPrivateKey());
 ```
+
+### Who is using it?
+
+Are you using this package, would love to know. Please send a PR to enlist your project or company. 
+- [Afosto SaaS BV](https://afosto.com)

@@ -27,6 +27,13 @@ class Authorization
      */
     protected $digest;
 
+    /**
+     * Authorization constructor.
+     * @param string $domain
+     * @param string $expires
+     * @param string $digest
+     * @throws \Exception
+     */
     public function __construct(string $domain, string $expires, string $digest)
     {
         $this->domain = $domain;
@@ -34,13 +41,18 @@ class Authorization
         $this->digest = $digest;
     }
 
+    /**
+     * Add a challenge to the authorization
+     * @param Challenge $challenge
+     */
     public function addChallenge(Challenge $challenge)
     {
         $this->challenges[] = $challenge;
     }
 
     /**
-     * @return array
+     * Return the domain that is being authorized
+     * @return string
      */
     public function getDomain(): string
     {
@@ -49,6 +61,7 @@ class Authorization
 
 
     /**
+     * Return the expiry of the authorization
      * @return \DateTime
      */
     public function getExpires(): \DateTime
@@ -57,6 +70,7 @@ class Authorization
     }
 
     /**
+     * Return array of challenges
      * @return Challenge[]
      */
     public function getChallenges(): array
@@ -65,6 +79,7 @@ class Authorization
     }
 
     /**
+     * Return the HTTP challenge
      * @return Challenge|bool
      */
     public function getHttpChallenge()
@@ -79,14 +94,14 @@ class Authorization
     }
 
     /**
-     * @param Challenge $challenge
+     * Return File object for the given challenge
      * @return File|bool
      */
-    public function getFile(Challenge $challenge)
+    public function getFile()
     {
-        if ($challenge->getType() == Client::VALIDATION_HTTP) {
-            $file = new File($challenge->getToken(), $challenge->getToken() . '.' . $this->digest);
-            return $file;
+        $challenge = $this->getHttpChallenge();
+        if ($challenge !== false) {
+            return new File($challenge->getToken(), $challenge->getToken() . '.' . $this->digest);
         }
         return false;
     }
