@@ -72,21 +72,23 @@ $order = $client->createOrder(['example.org', 'www.example.org']);
 In the example above the primary domain is followed by a secondary domain(s). Make sure that for each domain you are 
 able to prove ownership. As a result the certificate will be valid for all provided domains.
 
+
 ### Prove ownership
 
-Before you can obtain a certificate for a given domain you need to prove that you own the given domain(s). In this 
-example we will show you how to do this for http-01 validation (where serve specific content at a specific url on the
-domain, like: `example.org/.well-known/acme-challenge/*`).
-
-Obtain the authorizations for order. For each domain supplied in the create order request an authorization is returned.
-
+Before you can obtain a certificate for a given domain you need to prove that you own the given domain(s).
+We request the authorizations to prove ownership. Obtain the authorizations for order. For each domain supplied in the 
+create order request an authorization is returned.                                     
 ```php
 $authorizations = $client->authorize($order);
 ```
-
-
 You now have an array of `Authorization` objects. These have the challenges you can use (both `DNS` and `HTTP`) to 
-provide proof of ownership.
+provide proof of ownership. 
+
+
+#### HTTP validation
+
+HTTP validation (where serve specific content at a specific url on the domain, like: 
+`example.org/.well-known/acme-challenge/*`) is done as follows:
 
 Use the following example to get the HTTP validation going. First obtain the challenges, the next step is to make the 
 challenges accessible from 
@@ -97,25 +99,61 @@ foreach ($authorizations as $authorization) {
 }
 ```
 
-Now that the challenges are in place and accessible through `example.org/.well-known/acme-challenge/*` we can request 
-validation. 
+
+#### DNS validation
+You can also use DNS validation - to do this, you will need access to an API of your DNS 
+provider to create TXT records for the target domains.
+
+```php
+foreach ($authorizations as $authorization) {
+    $txtRecord = $authorization->getTxtRecord();
+    
+    //To get the name of the TXT record call:
+    $txtRecord->getName();
+
+    //To get the value of the TXT record call:
+    $txtRecord->getValue();
+}
+```
+
+
+### Self test
+
+After exposing the challenges (made accessible through HTTP or DNS) we can perform a self test just to 
+be sure it works. For a DNS test call:
+
+```php
+$client->selfTest($authorization, Client::VALIDATON_DNS);
+``` 
+
+For a HTTP challenge test call:
+```php
+$client->selfTest($authorization, Client::VALIDATION_HTTP);
+```
+
 
 ### Request validation
 
 Next step is to request validation of ownership. For each authorization (domain) we ask LetsEncrypt to verify the 
 challenge. 
 
+For HTTP validation:
 ```php
 foreach ($authorizations as $authorization) {
-    if ($client->selfTest($authorization, Client::VALIDATION_HTTP)) {
-        $client->validate($authorization->getHttpChallenge(), 15);
-    }
-   
+    $client->validate($authorization->getHttpChallenge(), 15);
+}
+```
+
+For DNS validation:
+```php
+foreach ($authorizations as $authorization) {
+    $client->validate($authorization->getDnsChallenge(), 15);
 }
 ```
 
 The code above will first perform a self test and, if successful, will do 15 attempts to ask LetsEncrypt to validate the challenge (with 1 second intervals) and
 retrieve an updated status (it might take Lets Encrypt a few seconds to validate the challenge).
+
 
 ### Get the certificate
 

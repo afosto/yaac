@@ -92,11 +92,11 @@ class Helper
         file_put_contents($fn, implode("\n", $config));
         $csr = openssl_csr_new([
             'countryName' => 'NL',
-            'commonName'  => $primaryDomain,
+            'commonName' => $primaryDomain,
         ], $key, [
-            'config'         => $fn,
+            'config' => $fn,
             'req_extensions' => 'SAN',
-            'digest_alg'     => 'sha512',
+            'digest_alg' => 'sha512',
         ]);
         unlink($fn);
 
