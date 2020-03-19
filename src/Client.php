@@ -441,7 +441,7 @@ class Client
                     }
                 }
             }
-            sleep(ceil(30 / $maxAttempts));
+            sleep(ceil(45 / $maxAttempts));
             $maxAttempts--;
         } while ($maxAttempts > 0);
 
