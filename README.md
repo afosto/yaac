@@ -123,7 +123,7 @@ After exposing the challenges (made accessible through HTTP or DNS) we can perfo
 be sure it works. For a DNS test call:
 
 ```php
-$client->selfTest($authorization, Client::TYPE_DNS);
+$client->selfTest($authorization, Client::VALIDATON_DNS);
 ``` 
 
 For a HTTP challenge test call:
