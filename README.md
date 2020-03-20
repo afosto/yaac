@@ -142,7 +142,7 @@ sleep(30); // this further sleep is recommended, depending on your DNS provider,
 ``` 
 
 With DNS validation, after the `selfTest` has confirmed that DNS has been updated, it is 
-recommend you wait some additional time before proceeding, e.g. `sleep(30);`. This is
+recommended you wait some additional time before proceeding, e.g. `sleep(30);`. This is
 because Let’s Encrypt will perform [multiple viewpoint validation](https://community.letsencrypt.org/t/acme-v1-v2-validating-challenges-from-multiple-network-vantage-points/112253),
 and your DNS provider may not have completed propagating the changes across their network. 
 
