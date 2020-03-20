@@ -1,15 +1,15 @@
 # yaac - Yet another ACME client
 
-Written in PHP, this client aims to be a simplified and decoupled LetsEncrypt client, based on ACME V2.
+Written in PHP, this client aims to be a simplified and decoupled Let’s Encrypt client, based on [ACME V2](https://tools.ietf.org/html/rfc8555).
 
 ## Decoupled from a filesystem or webserver
 
-In stead of, for example writing the certificate to the disk under an nginx configuration, this client just returns the 
+Instead of, for example writing the certificate to the disk under an nginx configuration, this client just returns the 
 data (the certificate and private key).
 
 ## Why
 
-Why whould I need this package? At Afosto we run our software in a multi-tenant setup, as any other SaaS would do, and
+Why would I need this package? At Afosto we run our software in a multi-tenant setup, as any other SaaS would do, and
 therefore we cannot make use of the many clients that are already out there. 
 
 Almost all clients are coupled to a type of webserver or a fixed (set of) domain(s). This package can be extremely 
@@ -37,7 +37,7 @@ composer require afosto/yaac
 
 ### Instantiate the client
 
-To start the client you need 3 things; a username for your LetsEncrypt account, a bootstrapped Flysystem and you need to 
+To start the client you need 3 things; a username for your Let’s Encrypt account, a bootstrapped Flysystem and you need to 
 decide whether you want to issue `Fake LE Intermediate X1` (staging: `MODE_STAGING`) or `Let's Encrypt Authority X3` 
 (live: `MODE_LIVE`, use for production) certificates.
 
@@ -58,7 +58,7 @@ $client = new Client([
 ]);
 ```
 
-While you instantiate the client, when needed a new LetsEcrypt account is created and then agrees to the TOS.
+While you instantiate the client, when needed a new Let’s Encrypt account is created and then agrees to the TOS.
 
 
 ### Create an order
@@ -99,8 +99,11 @@ foreach ($authorizations as $authorization) {
 }
 ```
 
+> If you need a wildcard certificate, you will need to use DNS validation, see below
+
 
 #### DNS validation
+
 You can also use DNS validation - to do this, you will need access to an API of your DNS 
 provider to create TXT records for the target domains.
 
@@ -119,22 +122,36 @@ foreach ($authorizations as $authorization) {
 
 ### Self test
 
-After exposing the challenges (made accessible through HTTP or DNS) we can perform a self test just to 
-be sure it works. For a DNS test call:
-
-```php
-$client->selfTest($authorization, Client::VALIDATON_DNS);
-``` 
+After exposing the challenges (made accessible through HTTP or DNS) we should perform a self test just to 
+be sure it works before asking Let's Encrypt to validate ownership.
 
 For a HTTP challenge test call:
 ```php
-$client->selfTest($authorization, Client::VALIDATION_HTTP);
+if (!$client->selfTest($authorization, Client::VALIDATION_HTTP)) {
+    throw new \Exception('Count not verify ownership via HTTP');
+}
 ```
+
+For a DNS test call:
+
+```php
+if (!$client->selfTest($authorization, Client::VALIDATON_DNS)) {
+    throw new \Exception('Count not verify ownership via DNS');
+}
+sleep(30); // this further sleep is recommended, depending on your DNS provider, see below
+``` 
+
+With DNS validation, after the `selfTest` has confirmed that DNS has been updated, it is 
+recommended you wait some additional time before proceeding, e.g. `sleep(30);`. This is
+because Let’s Encrypt will perform [multiple viewpoint validation](https://community.letsencrypt.org/t/acme-v1-v2-validating-challenges-from-multiple-network-vantage-points/112253),
+and your DNS provider may not have completed propagating the changes across their network. 
+
+If you proceed too soon, [Let's Encrypt will fail to validate](https://community.letsencrypt.org/t/during-secondary-validation-incorrect-txt-record/113643).
 
 
 ### Request validation
 
-Next step is to request validation of ownership. For each authorization (domain) we ask LetsEncrypt to verify the 
+Next step is to request validation of ownership. For each authorization (domain) we ask Let’s Encrypt to verify the 
 challenge. 
 
 For HTTP validation:
@@ -151,8 +168,8 @@ foreach ($authorizations as $authorization) {
 }
 ```
 
-The code above will first perform a self test and, if successful, will do 15 attempts to ask LetsEncrypt to validate the challenge (with 1 second intervals) and
-retrieve an updated status (it might take Lets Encrypt a few seconds to validate the challenge).
+The code above will first perform a self test and, if successful, will do 15 attempts to ask Let’s Encrypt to validate the challenge (with 1 second intervals) and
+retrieve an updated status (it might take Let’s Encrypt a few seconds to validate the challenge).
 
 
 ### Get the certificate
