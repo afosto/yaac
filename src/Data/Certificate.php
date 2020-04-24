@@ -20,6 +20,16 @@ class Certificate
     /**
      * @var string
      */
+    protected $certificateNoChain;
+
+    /**
+     * @var string
+     */
+    protected $intermediateCertificate;
+
+    /**
+     * @var string
+     */
     protected $csr;
 
     /**
@@ -39,6 +49,7 @@ class Certificate
         $this->privateKey = $privateKey;
         $this->csr = $csr;
         $this->certificate = $certificate;
+        list($this->certificateNoChain, $this->intermediateCertificate) = Helper::splitCertificate($certificate);
         $this->expiryDate = Helper::getCertExpiryDate($certificate);
     }
 
@@ -64,9 +75,18 @@ class Certificate
      * Return the certificate as a multi line string
      * @return string
      */
-    public function getCertificate(): string
+    public function getCertificate($asChain = true): string
     {
-        return $this->certificate;
+        return $asChain ? $this->certificate : $this->certificateNoChain;
+    }
+
+    /**
+     * Return the intermediate certificate as a multi line string
+     * @return string
+     */
+    public function getIntermediateCertificate(): string
+    {
+        return $this->intermediateCertificate;
     }
 
     /**

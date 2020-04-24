@@ -65,7 +65,7 @@ class Helper
     /**
      * Get a new CSR
      *
-     * @param array $domains
+     * @param  array  $domains
      * @param       $key
      *
      * @return string
@@ -81,8 +81,8 @@ class Helper
             '[v3_req]',
             '[v3_ca]',
             '[SAN]',
-            'subjectAltName=' . implode(',', array_map(function ($domain) {
-                return 'DNS:' . $domain;
+            'subjectAltName='.implode(',', array_map(function ($domain) {
+                return 'DNS:'.$domain;
             }, $domains)),
         ];
 
@@ -137,5 +137,26 @@ class Helper
         }
 
         return $accountDetails;
+    }
+
+    /**
+     * Split a two certificate bundle into separate
+     * multi line string certificates
+     * @return array
+     */
+    public static function splitCertificate(string $certificate): array
+    {
+        preg_match('/^(?<signed>-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)\n'
+            .'(?<intermediate>-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)$/s',
+            $certificate, $certificates);
+
+        $signed = $certificates['signed'] ?? null;
+        $intermediate = $certificates['intermediate'] ?? null;
+
+        if (!$signed || !$intermediate) {
+            throw new \Exception('Could not parse certificate string');
+        }
+
+        return [$signed, $intermediate];
     }
 }
