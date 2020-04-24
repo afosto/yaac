@@ -2,8 +2,6 @@
 
 namespace Afosto\Acme;
 
-use Afosto\Acme\Data\Authorization;
-use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\ClientException;
 
 /**
