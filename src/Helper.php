@@ -65,7 +65,7 @@ class Helper
     /**
      * Get a new CSR
      *
-     * @param  array  $domains
+     * @param array $domains
      * @param       $key
      *
      * @return string
@@ -81,8 +81,8 @@ class Helper
             '[v3_req]',
             '[v3_ca]',
             '[SAN]',
-            'subjectAltName='.implode(',', array_map(function ($domain) {
-                return 'DNS:'.$domain;
+            'subjectAltName=' . implode(',', array_map(function ($domain) {
+                return 'DNS:' . $domain;
             }, $domains)),
         ];
 
@@ -90,11 +90,11 @@ class Helper
         file_put_contents($fn, implode("\n", $config));
         $csr = openssl_csr_new([
             'countryName' => 'NL',
-            'commonName' => $primaryDomain,
+            'commonName'  => $primaryDomain,
         ], $key, [
-            'config' => $fn,
+            'config'         => $fn,
             'req_extensions' => 'SAN',
-            'digest_alg' => 'sha512',
+            'digest_alg'     => 'sha512',
         ]);
         unlink($fn);
 
@@ -140,23 +140,27 @@ class Helper
     }
 
     /**
-     * Split a two certificate bundle into separate
-     * multi line string certificates
+     * Split a two certificate bundle into separate multi line string certificates
+     * @param string $chain
      * @return array
+     * @throws \Exception
      */
-    public static function splitCertificate(string $certificate): array
+    public static function splitCertificate(string $chain): array
     {
-        preg_match('/^(?<signed>-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)\n'
-            .'(?<intermediate>-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)$/s',
-            $certificate, $certificates);
+        preg_match(
+            '/^(?<domain>-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)\n'
+            . '(?<intermediate>-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)$/s',
+            $chain,
+            $certificates
+        );
 
-        $signed = $certificates['signed'] ?? null;
+        $domain = $certificates['domain'] ?? null;
         $intermediate = $certificates['intermediate'] ?? null;
 
-        if (!$signed || !$intermediate) {
+        if (!$domain || !$intermediate) {
             throw new \Exception('Could not parse certificate string');
         }
 
-        return [$signed, $intermediate];
+        return [$domain, $intermediate];
     }
 }

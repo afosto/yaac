@@ -15,12 +15,12 @@ class Certificate
     /**
      * @var string
      */
-    protected $certificate;
+    protected $chain;
 
     /**
      * @var string
      */
-    protected $certificateNoChain;
+    protected $certificate;
 
     /**
      * @var string
@@ -41,16 +41,16 @@ class Certificate
      * Certificate constructor.
      * @param $privateKey
      * @param $csr
-     * @param $certificate
+     * @param $chain
      * @throws \Exception
      */
-    public function __construct($privateKey, $csr, $certificate)
+    public function __construct($privateKey, $csr, $chain)
     {
         $this->privateKey = $privateKey;
         $this->csr = $csr;
-        $this->certificate = $certificate;
-        list($this->certificateNoChain, $this->intermediateCertificate) = Helper::splitCertificate($certificate);
-        $this->expiryDate = Helper::getCertExpiryDate($certificate);
+        $this->chain = $chain;
+        list($this->certificate, $this->intermediateCertificate) = Helper::splitCertificate($chain);
+        $this->expiryDate = Helper::getCertExpiryDate($chain);
     }
 
     /**
@@ -72,19 +72,21 @@ class Certificate
     }
 
     /**
-     * Return the certificate as a multi line string
+     * Return the certificate as a multi line string, by default it includes the intermediate certificate as well
+     *
+     * @param bool $asChain
      * @return string
      */
     public function getCertificate($asChain = true): string
     {
-        return $asChain ? $this->certificate : $this->certificateNoChain;
+        return $asChain ? $this->chain : $this->certificate;
     }
 
     /**
      * Return the intermediate certificate as a multi line string
      * @return string
      */
-    public function getIntermediateCertificate(): string
+    public function getIntermediate(): string
     {
         return $this->intermediateCertificate;
     }
