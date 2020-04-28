@@ -195,6 +195,12 @@ file_put_contents('certificate.cert', $certificate->getCertificate());
 file_put_contents('private.key', $certificate->getPrivateKey());
 ```
 
+>To get a seperate intermediate certificate and domain certificate:
+>```php
+>$domainCertificate = $certificate->getCertificate(false);
+>$intermediateCertificate = $certificate->getIntermediate();
+>```
+
 ### Who is using it?
 
 Are you using this package, would love to know. Please send a PR to enlist your project or company. 

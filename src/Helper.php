@@ -2,8 +2,6 @@
 
 namespace Afosto\Acme;
 
-use Afosto\Acme\Data\Authorization;
-use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\ClientException;
 
 /**
@@ -92,11 +90,11 @@ class Helper
         file_put_contents($fn, implode("\n", $config));
         $csr = openssl_csr_new([
             'countryName' => 'NL',
-            'commonName' => $primaryDomain,
+            'commonName'  => $primaryDomain,
         ], $key, [
-            'config' => $fn,
+            'config'         => $fn,
             'req_extensions' => 'SAN',
-            'digest_alg' => 'sha512',
+            'digest_alg'     => 'sha512',
         ]);
         unlink($fn);
 
@@ -139,5 +137,30 @@ class Helper
         }
 
         return $accountDetails;
+    }
+
+    /**
+     * Split a two certificate bundle into separate multi line string certificates
+     * @param string $chain
+     * @return array
+     * @throws \Exception
+     */
+    public static function splitCertificate(string $chain): array
+    {
+        preg_match(
+            '/^(?<domain>-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)\n'
+            . '(?<intermediate>-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)$/s',
+            $chain,
+            $certificates
+        );
+
+        $domain = $certificates['domain'] ?? null;
+        $intermediate = $certificates['intermediate'] ?? null;
+
+        if (!$domain || !$intermediate) {
+            throw new \Exception('Could not parse certificate string');
+        }
+
+        return [$domain, $intermediate];
     }
 }
