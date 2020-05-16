@@ -191,8 +191,8 @@ $certificate = $client->getCertificate($order);
 We now have the certificate, to store it on the filesystem:
 ```php
 //Store the certificate and private key where you need it
-file_put_contents('certificate.cert', $certificate->getCertificate());
-file_put_contents('private.key', $certificate->getPrivateKey());
+$filesystem->put('certificates/certificate.cert', $certificate->getCertificate());
+$filesystem->put('certificates/private.key', $certificate->getPrivateKey());
 ```
 
 >To get a seperate intermediate certificate and domain certificate:
