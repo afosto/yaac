@@ -128,15 +128,15 @@ be sure it works before asking Let's Encrypt to validate ownership.
 For a HTTP challenge test call:
 ```php
 if (!$client->selfTest($authorization, Client::VALIDATION_HTTP)) {
-    throw new \Exception('Count not verify ownership via HTTP');
+    throw new \Exception('Could not verify ownership via HTTP');
 }
 ```
 
 For a DNS test call:
 
 ```php
-if (!$client->selfTest($authorization, Client::VALIDATON_DNS)) {
-    throw new \Exception('Count not verify ownership via DNS');
+if (!$client->selfTest($authorization, Client::VALIDATION_DNS)) {
+    throw new \Exception('Could not verify ownership via DNS');
 }
 sleep(30); // this further sleep is recommended, depending on your DNS provider, see below
 ``` 
