@@ -119,6 +119,7 @@ class Client
      * @type Filesystem $fs Filesystem for storage of static data
      * @type string $basePath The base path for the filesystem (used to store account information and csr / keys
      * @type string $username The acme username
+     * @type string $source_ip The source IP for Guzzle (via curl.options) to bind to (defaults to 0.0.0.0 [OS default])
      * }
      */
     public function __construct($config = [])
@@ -368,9 +369,12 @@ class Client
     {
         if ($this->httpClient === null) {
             $this->httpClient = new HttpClient([
-                'base_uri' => (
+                'base_uri'     => (
                 ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
                     self::DIRECTORY_LIVE : self::DIRECTORY_STAGING),
+                'curl.options' => [
+                    'CURLOPT_INTERFACE' => $this->getOption('source_ip', '0.0.0.0')
+                ]
             ]);
         }
         return $this->httpClient;
