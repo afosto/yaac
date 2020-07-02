@@ -369,11 +369,11 @@ class Client
     {
         if ($this->httpClient === null) {
             $this->httpClient = new HttpClient([
-                'base_uri' => (
+                'base_uri'     => (
                 ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
                     self::DIRECTORY_LIVE : self::DIRECTORY_STAGING),
-                'curl.options'=>[
-                  'CURLOPT_INTERFACE'=>($this->getOption('source_ip',false) !== false) ? $this->config['source_ip'] : '0.0.0.0'
+                'curl.options' => [
+                    'CURLOPT_INTERFACE' => $this->getOption('source_ip', '0.0.0.0')
                 ]
             ]);
         }
