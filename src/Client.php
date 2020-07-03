@@ -368,14 +368,15 @@ class Client
     protected function getHttpClient()
     {
         if ($this->httpClient === null) {
-            $this->httpClient = new HttpClient([
-                'base_uri'     => (
+                $config = [
+                'base_uri' => (
                 ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
                     self::DIRECTORY_LIVE : self::DIRECTORY_STAGING),
-                'curl.options' => [
-                    'CURLOPT_INTERFACE' => $this->getOption('source_ip', '0.0.0.0')
-                ]
-            ]);
+            ];
+            if ($this->getOption('source_ip', false) !== false) {
+                $config['curl.options']['CURLOPT_INTERFACE'] = $this->getOption('source_ip');
+            }
+            $this->httpClient = new HttpClient($config);
         }
         return $this->httpClient;
     }
@@ -536,9 +537,9 @@ class Client
         $userDirectory = preg_replace('/[^a-z0-9]+/', '-', strtolower($this->getOption('username')));
 
         return $this->getOption(
-            'basePath',
-            'le'
-        ) . DIRECTORY_SEPARATOR . $userDirectory . ($path === null ? '' : DIRECTORY_SEPARATOR . $path);
+                'basePath',
+                'le'
+            ) . DIRECTORY_SEPARATOR . $userDirectory . ($path === null ? '' : DIRECTORY_SEPARATOR . $path);
     }
 
     /**
