@@ -368,7 +368,7 @@ class Client
     protected function getHttpClient()
     {
         if ($this->httpClient === null) {
-                $config = [
+            $config = [
                 'base_uri' => (
                 ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
                     self::DIRECTORY_LIVE : self::DIRECTORY_STAGING),
@@ -537,9 +537,9 @@ class Client
         $userDirectory = preg_replace('/[^a-z0-9]+/', '-', strtolower($this->getOption('username')));
 
         return $this->getOption(
-                'basePath',
-                'le'
-            ) . DIRECTORY_SEPARATOR . $userDirectory . ($path === null ? '' : DIRECTORY_SEPARATOR . $path);
+            'basePath',
+            'le'
+        ) . DIRECTORY_SEPARATOR . $userDirectory . ($path === null ? '' : DIRECTORY_SEPARATOR . $path);
     }
 
     /**
