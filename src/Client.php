@@ -297,7 +297,7 @@ class Client
                 $this->signPayloadKid(null, $challenge->getAuthorizationURL())
             );
             $data = json_decode((string)$response->getBody(), true);
-            if ($maxAttempts > 1) {
+            if ($maxAttempts > 1 && $data['status'] != 'valid') {
                 sleep(ceil(15 / $maxAttempts));
             }
             $maxAttempts--;
