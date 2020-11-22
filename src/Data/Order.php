@@ -121,7 +121,7 @@ class Order
     }
 
     /**
-     * Returs domains as identifiers
+     * Returns domains as identifiers
      * @return array
      */
     public function getIdentifiers(): array

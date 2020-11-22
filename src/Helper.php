@@ -2,7 +2,10 @@
 
 namespace Afosto\Acme;
 
-use GuzzleHttp\Exception\ClientException;
+use Exception;
+use function openssl_pkey_new;
+use const OPENSSL_KEYTYPE_EC;
+use const OPENSSL_KEYTYPE_RSA;
 
 /**
  * Class Helper
@@ -48,15 +51,40 @@ class Helper
     /**
      * Get a new key
      *
+     * @param     $key_type
+     * @param int $key_size
+     *
      * @return string
+     * @throws \Exception
      */
-    public static function getNewKey(): string
+    public static function getNewKey($key_type, $key_size = 256): string
     {
+        switch ($key_type) {
+            case 'EC':
+                if (256 === $key_size) {
+                    $curve_name = 'prime256v1';
+                }
+                elseif (384 === $key_size) {
+                    $curve_name = 'secp384r1';
+                }
+                else {
+                    throw new Exception('EC key size must be 256 or 384.');
+                }
+                $key = openssl_pkey_new([
+                    "private_key_type" => OPENSSL_KEYTYPE_EC,
+                    "curve_name" => $curve_name,
+                ]);
+                break;
+            case 'RSA':
+                $key = openssl_pkey_new([
+                    'private_key_bits' => 4096,
+                    'private_key_type' => OPENSSL_KEYTYPE_RSA,
+                ]);
+                break;
+            default:
+                throw new Exception('key type must be `RSA` or `EC`.');
+        }
 
-        $key = openssl_pkey_new([
-            'private_key_bits' => 4096,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-        ]);
         openssl_pkey_export($key, $pem);
 
         return $pem;
