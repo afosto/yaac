@@ -332,8 +332,35 @@ class Client
             $data['certificate'],
             $this->signPayloadKid(null, $data['certificate'])
         );
-        $chain = $str = preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
-        return new Certificate($privateKey, $csr, $chain);
+        $originalCertificate  = $this->makeCertificate($privateKey, $csr, (string)$certificateResponse->getBody());
+        $parsedIntermediate = openssl_x509_parse($originalCertificate->getIntermediate());
+        if($preferredChain = $this->getOption('preferred_chain', null)) {
+            if(isset($parsedIntermediate['issuer']['CN'])
+                && $preferredChain !== $parsedIntermediate['issuer']['CN']) {
+                $links = $certificateResponse->getHeader('link');
+                $alternativeLinks = array_reduce($links, function ($carry, $link) {
+                    if(preg_match('~^<(.+)>;rel="alternate"$~i', $link, $matches)) {
+                        $carry[] = $matches[1];
+                    }
+                    return $carry;
+                } , []);
+                foreach ($alternativeLinks as $alternateCertLink) {
+                    $certificateResponse = $this->request(
+                        $alternateCertLink,
+                        $this->signPayloadKid(null, $alternateCertLink)
+                    );
+                    $alternateCertificate  = $this->makeCertificate($privateKey, $csr, (string)$certificateResponse->getBody());
+                    $parsedIntermediate = openssl_x509_parse($alternateCertificate->getIntermediate());
+                    if (isset($parsedIntermediate['issuer']['CN']) && $preferredChain === $parsedIntermediate['issuer']['CN']) {
+                        return $alternateCertificate;
+                    }
+                    //TODO : Log : although preferred "issuer" is provided but we could not find any, so we stick to default cert provided
+                }
+
+            }
+        }
+
+        return $originalCertificate;
     }
 
 
@@ -754,5 +781,20 @@ class Client
             'payload'   => $payload,
             'signature' => Helper::toSafeString($signature),
         ];
+    }
+
+    /**
+     * @param        $privateKey
+     * @param        $csr
+     * @param string $certificateResponse
+     *
+     * @return \Afosto\Acme\Data\Certificate
+     * @throws \Exception
+     */
+    private function makeCertificate($privateKey, $csr, string $certificateResponse)
+    {
+        $chain = preg_replace('/^[ \t]*[\r\n]+/m', '', $certificateResponse);
+        return new Certificate($privateKey, $csr, $chain);
+
     }
 }
