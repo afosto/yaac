@@ -19,7 +19,7 @@ class Helper
      */
     public static function toDer($pem)
     {
-        $lines = explode(PHP_EOL, $pem);
+        $lines = preg_split("/[\r\n]+/", $pem);
         $lines = array_slice($lines, 1, -1);
 
         return base64_decode(implode('', $lines));
