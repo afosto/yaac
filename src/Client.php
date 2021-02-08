@@ -61,6 +61,16 @@ class Client
     const VALIDATION_DNS = 'dns-01';
 
     /**
+     * Default SSL key type to use
+     */
+    const DEFAULT_KEYTYPE = OPENSSL_KEYTYPE_RSA;
+
+    /**
+     * Default SSL key size to user
+     */
+    const DEFAULT_KEYSIZE = 4096;
+
+    /**
      * @var string
      */
     protected $nonce;
@@ -310,12 +320,14 @@ class Client
      * Return a certificate
      *
      * @param Order $order
+     * @param int $key_type
+     * @param int $key_size
      * @return Certificate
      * @throws \Exception
      */
-    public function getCertificate(Order $order): Certificate
+    public function getCertificate(Order $order, int $key_type = self::DEFAULT_KEYTYPE, int $key_size = self::DEFAULT_KEYSIZE): Certificate
     {
-        $privateKey = Helper::getNewKey();
+        $privateKey = Helper::getNewKey($key_type, $key_size);
         $csr = Helper::getCsr($order->getDomains(), $privateKey);
         $der = Helper::toDer($csr);
 

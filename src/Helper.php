@@ -48,14 +48,16 @@ class Helper
     /**
      * Get a new key
      *
+     * @param int $type
+     * @param int $size
      * @return string
      */
-    public static function getNewKey(): string
+    public static function getNewKey(int $type = Client::DEFAULT_KEYTYPE, int $size = Client::DEFAULT_KEYSIZE): string
     {
 
         $key = openssl_pkey_new([
-            'private_key_bits' => 4096,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+            'private_key_bits' => $size,
+            'private_key_type' => $type,
         ]);
         openssl_pkey_export($key, $pem);
 
