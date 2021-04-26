@@ -95,7 +95,7 @@ class Order
 
     /**
      * Return set of authorizations for the order
-     * @return Authorization[]
+     * @return string[]
      */
     public function getAuthorizationURLs(): array
     {
