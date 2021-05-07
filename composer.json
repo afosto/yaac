@@ -1,6 +1,6 @@
 {
   "name": "afosto/yaac",
-  "description": "Yet Another ACME client",
+  "description": "Yet Another ACME client: a decoupled LetsEncrypt client",
   "type": "package",
   "keywords": [
     "afosto",
