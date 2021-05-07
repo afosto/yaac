@@ -16,10 +16,11 @@ class Helper
      * Formatter
      * @param $pem
      * @return false|string
+     * @see https://eidson.info/post/php_eol_is_broken
      */
     public static function toDer($pem)
     {
-        $lines = preg_split("/[\r\n]+/", $pem);
+        $lines = preg_split('/\n|\r\n?/', $pem);
         $lines = array_slice($lines, 1, -1);
 
         return base64_decode(implode('', $lines));
