@@ -3,7 +3,7 @@
 
 namespace Afosto\Acme\Data;
 
-class Order
+class Order extends Data
 {
 
     /**
@@ -145,5 +145,25 @@ class Order
     public function getDomains(): array
     {
         return $this->domains;
+    }
+
+    /**
+     * @param string $json
+     * @return Order
+     * @throws \Exception
+     */
+    public static function fromJson($json)
+    {
+        $data = json_decode($json, true);
+
+        return new Order(
+            $data['domains'],
+            $data['url'],
+            $data['status'],
+            $data['expiresAt']['date'],
+            $data['identifiers'],
+            $data['authorizations'],
+            $data['finalizeURL']
+        );
     }
 }

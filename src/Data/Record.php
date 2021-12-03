@@ -2,7 +2,7 @@
 
 namespace Afosto\Acme\Data;
 
-class Record
+class Record extends Data
 {
 
     /**
@@ -42,5 +42,16 @@ class Record
     public function getValue(): string
     {
         return $this->value;
+    }
+
+    /**
+     * @param string $json
+     * @return Record
+     */
+    public static function fromJson($json)
+    {
+        $data = json_decode($json, true);
+
+        return new Record($data['name'], $data['value']);
     }
 }

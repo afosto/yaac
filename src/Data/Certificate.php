@@ -4,7 +4,7 @@ namespace Afosto\Acme\Data;
 
 use Afosto\Acme\Helper;
 
-class Certificate
+class Certificate extends Data
 {
 
     /**
@@ -98,5 +98,17 @@ class Certificate
     public function getPrivateKey(): string
     {
         return $this->privateKey;
+    }
+
+    /**
+     * @param string $json
+     * @return Certificate
+     * @throws \Exception
+     */
+    public static function fromJson($json)
+    {
+        $data = json_decode($json, true);
+
+        return new Certificate($data['privateKey'], $data['csr'], $data['chain']);
     }
 }

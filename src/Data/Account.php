@@ -2,7 +2,7 @@
 
 namespace Afosto\Acme\Data;
 
-class Account
+class Account extends Data
 {
 
     /**
@@ -11,7 +11,7 @@ class Account
     protected $contact;
 
     /**
-     * @var string
+     * @var \DateTime
      */
     protected $createdAt;
 
@@ -105,5 +105,23 @@ class Account
     public function isValid(): bool
     {
         return $this->isValid;
+    }
+
+    /**
+     * @param string $json
+     * @return Account
+     * @throws \Exception
+     */
+    public static function fromJson($json)
+    {
+        $data = json_decode($json, true);
+
+        return new Account(
+            $data['contact'],
+            new \DateTime($data['createdAt']['date']),
+            $data['isValid'],
+            $data['initialIp'],
+            $data['accountURL']
+        );
     }
 }

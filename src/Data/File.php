@@ -2,7 +2,7 @@
 
 namespace Afosto\Acme\Data;
 
-class File
+class File extends Data
 {
 
     /**
@@ -42,5 +42,16 @@ class File
     public function getContents(): string
     {
         return $this->contents;
+    }
+
+    /**
+     * @param string $json
+     * @return File
+     */
+    public static function fromJson($json)
+    {
+        $data = json_decode($json, true);
+
+        return new File($data['filename'], $data['contents']);
     }
 }

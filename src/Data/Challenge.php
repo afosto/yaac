@@ -2,7 +2,7 @@
 
 namespace Afosto\Acme\Data;
 
-class Challenge
+class Challenge extends Data
 {
 
     /**
@@ -90,5 +90,22 @@ class Challenge
     public function getAuthorizationURL(): string
     {
         return $this->authorizationURL;
+    }
+
+    /**
+     * @param string $json
+     * @return Challenge
+     */
+    public static function fromJson($json)
+    {
+        $data = json_decode($json, true);
+
+        return new Challenge(
+            $data['authorizationURL'],
+            $data['type'],
+            $data['status'],
+            $data['url'],
+            $data['token']
+        );
     }
 }

@@ -5,7 +5,7 @@ namespace Afosto\Acme\Data;
 use Afosto\Acme\Client;
 use Afosto\Acme\Helper;
 
-class Authorization
+class Authorization extends Data
 {
 
     /**
@@ -137,5 +137,24 @@ class Authorization
         }
 
         return false;
+    }
+
+    /**
+     * @param string $json
+     * @return Authorization
+     * @throws \Exception
+     */
+    public static function fromJson($json)
+    {
+        $data = json_decode($json, true);
+
+        $authorization = new Authorization($data['domain'], $data['expires']['date'], $data['digest']);
+
+        // add challenges
+        foreach ($data['challenges'] as $challenge) {
+            $authorization->addChallenge(Challenge::fromJson(json_encode($challenge)));
+        }
+
+        return $authorization;
     }
 }
