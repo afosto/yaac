@@ -271,6 +271,7 @@ class Client
         } elseif ($type == self::VALIDATION_DNS) {
             return $this->selfDNSTest($authorization, $maxAttempts);
         }
+        return false;
     }
 
     /**
@@ -488,12 +489,6 @@ class Client
         $this->account = $this->getAccount();
     }
 
-    /**
-     * Load the keys in memory
-     *
-     * @throws \League\Flysystem\FileExistsException
-     * @throws \League\Flysystem\FileNotFoundException
-     */
     protected function loadKeys()
     {
         //Make sure a private key is in place
