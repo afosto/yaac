@@ -140,7 +140,7 @@ class Client
 
     public function getKeyLength(): int
     {
-        return $config['key_length'] ?? 4096;
+        return $this->config['key_length'] ?? 4096;
     }
 
     /**
