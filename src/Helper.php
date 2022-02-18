@@ -51,11 +51,11 @@ class Helper
      *
      * @return string
      */
-    public static function getNewKey(): string
+    public static function getNewKey(int $keyLength): string
     {
 
         $key = openssl_pkey_new([
-            'private_key_bits' => 4096,
+            'private_key_bits' => $keyLength,
             'private_key_type' => OPENSSL_KEYTYPE_RSA,
         ]);
         openssl_pkey_export($key, $pem);

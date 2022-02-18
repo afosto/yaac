@@ -271,6 +271,7 @@ class Client
         } elseif ($type == self::VALIDATION_DNS) {
             return $this->selfDNSTest($authorization, $maxAttempts);
         }
+        return false;
     }
 
     /**
@@ -281,7 +282,7 @@ class Client
      * @return bool
      * @throws \Exception
      */
-    public function validate(Challenge $challenge, $maxAttempts = 15): bool
+    public function validate(Challenge $challenge, int $maxAttempts = 15): bool
     {
         $this->request(
             $challenge->getUrl(),
@@ -315,7 +316,7 @@ class Client
      */
     public function getCertificate(Order $order): Certificate
     {
-        $privateKey = Helper::getNewKey();
+        $privateKey = Helper::getNewKey($this->getOption('key_length', 4096));
         $csr = Helper::getCsr($order->getDomains(), $privateKey);
         $der = Helper::toDer($csr);
 
@@ -488,17 +489,14 @@ class Client
         $this->account = $this->getAccount();
     }
 
-    /**
-     * Load the keys in memory
-     *
-     * @throws \League\Flysystem\FileExistsException
-     * @throws \League\Flysystem\FileNotFoundException
-     */
     protected function loadKeys()
     {
         //Make sure a private key is in place
         if ($this->getFilesystem()->has($this->getPath('account.pem')) === false) {
-            $this->getFilesystem()->write($this->getPath('account.pem'), Helper::getNewKey());
+            $this->getFilesystem()->write(
+                $this->getPath('account.pem'),
+                Helper::getNewKey($this->getOption('key_length', 4096))
+            );
         }
         $privateKey = $this->getFilesystem()->read($this->getPath('account.pem'));
         $privateKey = openssl_pkey_get_private($privateKey);
