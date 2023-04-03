@@ -205,6 +205,7 @@ file_put_contents('private.key', $certificate->getPrivateKey());
 
 Are you using this package, would love to know. Please send a PR to enlist your project or company. 
 - [Afosto SaaS BV](https://afosto.com)
+- [Aitrex - Free Let's Encrypt SSL Certificate Generator](https://aitrex.com/freessl.php)
 - [Web Whales](https://webwhales.nl)
 - [do.de](https://www.do.de)
 - [punchsalad.com](https://punchsalad.com/ssl-certificate-generator/)
