@@ -244,10 +244,7 @@ class Client
             foreach ($data['challenges'] as $challengeData) {
                 $challenge = new Challenge(
                     $authorizationURL,
-                    $challengeData['type'],
-                    $challengeData['status'],
-                    $challengeData['url'],
-                    $challengeData['token']
+                    $challengeData
                 );
                 $authorization->addChallenge($challenge);
             }
