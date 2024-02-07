@@ -337,7 +337,7 @@ class Client
         $chain = '';
 
         if (!empty($data['certificate'])) {
-            $chain = $this->getCertficateChain($data['certificate']);
+            $chain = $this->getCertificateChain($data['certificate']);
         } else {
             if ('processing' == $data['status']) {
                 sleep(ceil(15 / $maxAttempts));
@@ -345,7 +345,7 @@ class Client
                     $order = $this->getOrder($order->getId());
 
                     if ('valid' == $order->getStatus()) {
-                        $chain = $this->getCertficateChain($order->getCertificate());
+                        $chain = $this->getCertificateChain($order->getCertificate());
                         break;
                     }
 
