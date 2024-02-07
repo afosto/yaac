@@ -157,6 +157,8 @@ class Client
             $domains[] = $identifier['value'];
         }
 
+        $certificate = (!empty($data['certificate'])) ? $data['certificate'] : '';
+
         return new Order(
             $domains,
             $url,
@@ -164,7 +166,8 @@ class Client
             $data['expires'],
             $data['identifiers'],
             $data['authorizations'],
-            $data['finalize']
+            $data['finalize'],
+            $certificate,
         );
     }
 
@@ -311,10 +314,11 @@ class Client
      * Return a certificate
      *
      * @param Order $order
+     * @param int $maxAttempts
      * @return Certificate
      * @throws \Exception
      */
-    public function getCertificate(Order $order): Certificate
+    public function getCertificate(Order $order, int $maxAttempts = 15): Certificate
     {
         $privateKey = Helper::getNewKey($this->getOption('key_length', 4096));
         $csr = Helper::getCsr($order->getDomains(), $privateKey);
@@ -329,14 +333,33 @@ class Client
         );
 
         $data = json_decode((string)$response->getBody(), true);
-        $certificateResponse = $this->request(
-            $data['certificate'],
-            $this->signPayloadKid(null, $data['certificate'])
-        );
-        $chain = $str = preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
+        
+        $chain = '';
+
+        if (!empty($data['certificate'])) {
+            $chain = $this->getCertficateChain($data['certificate']);
+        } else {
+            if ('processing' == $data['status']) {
+                sleep(ceil(15 / $maxAttempts));
+                do {
+                    $order = $this->getOrder($order->getId());
+
+                    if ('valid' == $order->getStatus()) {
+                        $chain = $this->getCertficateChain($order->getCertificate());
+                        break;
+                    }
+
+                    $maxAttempts--;
+                } while ($maxAttempts > 0);
+            }
+        }
+
+        if (empty($chain)) {
+            throw new \Exception('Could not obtain certificate');
+        }
+
         return new Certificate($privateKey, $csr, $chain);
     }
-
 
     /**
      * Return LE account information
@@ -360,6 +383,21 @@ class Client
         $accountURL = $response->getHeaderLine('Location');
         $date = (new \DateTime())->setTimestamp(strtotime($data['createdAt']));
         return new Account($data['contact'], $date, ($data['status'] == 'valid'), $data['initialIp'], $accountURL);
+    }
+
+    /**
+     * Return certificate chain
+     * 
+     * @param string $certificate
+     * @return string
+     */
+    private function getCertificateChain($certificate): string
+    {
+        $certificateResponse = $this->request(
+            $certificate,
+            $this->signPayloadKid(null, $certificate)
+        );
+        return preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
     }
 
     /**
