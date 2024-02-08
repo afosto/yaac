@@ -37,6 +37,11 @@ class Order
     protected $finalizeURL;
 
     /**
+     * @var string
+     */
+    protected $certificate;
+
+    /**
      * @var array
      */
     protected $domains;
@@ -50,6 +55,7 @@ class Order
      * @param array $identifiers
      * @param array $authorizations
      * @param string $finalizeURL
+     * @param string $certificate
      * @throws \Exception
      */
     public function __construct(
@@ -59,7 +65,8 @@ class Order
         string $expiresAt,
         array $identifiers,
         array $authorizations,
-        string $finalizeURL
+        string $finalizeURL,
+        string $certificate = '',
     ) {
         //Handle the microtime date format
         if (strpos($expiresAt, '.') !== false) {
@@ -72,6 +79,7 @@ class Order
         $this->identifiers = $identifiers;
         $this->authorizations = $authorizations;
         $this->finalizeURL = $finalizeURL;
+        $this->certificate = $certificate;
     }
 
 
@@ -136,6 +144,15 @@ class Order
     public function getFinalizeURL(): string
     {
         return $this->finalizeURL;
+    }
+
+    /**
+     * Returns certificate
+     * @return string
+     */
+    public function getCertificate(): string
+    {
+        return $this->certificate;
     }
 
     /**
