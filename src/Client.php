@@ -364,8 +364,15 @@ class Client
 
         $data = json_decode((string)$response->getBody(), true);
         $accountURL = $response->getHeaderLine('Location');
-        $date = (new \DateTime())->setTimestamp(strtotime($data['createdAt']));
-        return new Account($data['contact'], $date, ($data['status'] == 'valid'), $data['initialIp'], $accountURL);
+
+        // Use the current date and time if 'createdAt' is not set
+        $createdAt = $data['createdAt'] ?? (new \DateTime())->format(\DateTime::ATOM);
+        $date = (new \DateTime())->setTimestamp(strtotime($createdAt));
+
+        // Use 'unknown' if 'initialIp' is not set
+        $initialIp = $data['initialIp'] ?? 'unknown';
+
+        return new Account($data['contact'], $date, ($data['status'] == 'valid'), $initialIp, $accountURL);
     }
 
     /**
@@ -487,7 +494,7 @@ class Client
     protected function init()
     {
         //Load the directories from the LE api
-        $response = $this->getHttpClient()->get('/directory');
+        $response = $this->getHttpClient()->get('');
         $result = \GuzzleHttp\json_decode((string)$response->getBody(), true);
         $this->directories = $result;
 
