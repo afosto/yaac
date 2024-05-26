@@ -116,6 +116,7 @@ class Client
      * @param array $config
      *
      * @type string $mode The mode for ACME (production / staging)
+     * @type string $baseUri The base URI for the ACME API (cannot be supplied when mode is set) 
      * @type Filesystem $fs Filesystem for storage of static data
      * @type string $basePath The base path for the filesystem (used to store account information and csr / keys
      * @type string $username The acme username
@@ -125,6 +126,11 @@ class Client
     public function __construct($config = [])
     {
         $this->config = $config;
+
+        if ($this->getOption('baseUri', false) && $this->getOption('mode', false)) {
+            throw new \LogicException('Both baseUri and mode cannot be supplied simultaneously.');
+        }
+
         if ($this->getOption('fs', false)) {
             $this->filesystem = $this->getOption('fs');
         } else {
@@ -370,9 +376,11 @@ class Client
     {
         if ($this->httpClient === null) {
             $config = [
-                'base_uri' => (
-                ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
-                    self::DIRECTORY_LIVE : self::DIRECTORY_STAGING),
+                'base_uri' => $this->getOption(
+                    'baseUri',
+                    ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
+                        self::DIRECTORY_LIVE : self::DIRECTORY_STAGING
+                ),
             ];
             if ($this->getOption('source_ip', false) !== false) {
                 $config['curl.options']['CURLOPT_INTERFACE'] = $this->getOption('source_ip');
