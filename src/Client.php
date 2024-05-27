@@ -116,6 +116,7 @@ class Client
      * @param array $config
      *
      * @type string $mode The mode for ACME (production / staging)
+     * @type string $baseUri The base URI for the ACME API (cannot be supplied when mode is set) 
      * @type Filesystem $fs Filesystem for storage of static data
      * @type string $basePath The base path for the filesystem (used to store account information and csr / keys
      * @type string $username The acme username
@@ -125,6 +126,11 @@ class Client
     public function __construct($config = [])
     {
         $this->config = $config;
+
+        if ($this->getOption('baseUri', false) && $this->getOption('mode', false)) {
+            throw new \LogicException('Both baseUri and mode cannot be supplied simultaneously.');
+        }
+
         if ($this->getOption('fs', false)) {
             $this->filesystem = $this->getOption('fs');
         } else {
@@ -139,16 +145,21 @@ class Client
     }
 
     /**
-     * Get an existing order by ID
+     * Get an existing order by ID or URL
      *
-     * @param $id
+     * @param string $idOrUrl
      * @return Order
      * @throws \Exception
      */
-    public function getOrder($id): Order
+    public function getOrder($idOrUrl): Order
     {
-        $url = str_replace('new-order', 'order', $this->getUrl(self::DIRECTORY_NEW_ORDER));
-        $url = $url . '/' . $this->getAccount()->getId() . '/' . $id;
+        if (strpos($idOrUrl, 'http') === 0) {
+            $url = $idOrUrl;
+        } else {
+            trigger_error("Warning: Constructing URL from ID. This may lead to unexpected behavior if the server uses a different base URL for existing orders.", E_USER_WARNING);
+            $url = str_replace('new-order', 'order', $this->getUrl(self::DIRECTORY_NEW_ORDER));
+            $url = $url . '/' . $this->getAccount()->getId() . '/' . $idOrUrl;
+        }
         $response = $this->request($url, $this->signPayloadKid(null, $url));
         $data = json_decode((string)$response->getBody(), true);
 
@@ -177,7 +188,7 @@ class Client
      */
     public function isReady(Order $order): bool
     {
-        $order = $this->getOrder($order->getId());
+        $order = $this->getOrder($order->getURL());
         return $order->getStatus() == 'ready';
     }
 
@@ -284,11 +295,9 @@ class Client
      */
     public function validate(Challenge $challenge, int $maxAttempts = 15): bool
     {
-        $this->request(
+        $response = $this->request(
             $challenge->getUrl(),
-            $this->signPayloadKid([
-                'keyAuthorization' => $challenge->getToken() . '.' . $this->getDigest()
-            ], $challenge->getUrl())
+            $this->signPayloadKid([], $challenge->getUrl())
         );
 
         $data = [];
@@ -311,10 +320,11 @@ class Client
      * Return a certificate
      *
      * @param Order $order
+     * @param int $maxAttempts
      * @return Certificate
      * @throws \Exception
      */
-    public function getCertificate(Order $order): Certificate
+    public function getCertificate(Order $order, $maxAttempts = 15): Certificate
     {
         $privateKey = Helper::getNewKey($this->getOption('key_length', 4096));
         $csr = Helper::getCsr($order->getDomains(), $privateKey);
@@ -328,7 +338,19 @@ class Client
             )
         );
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = [];
+        do {
+            $response = $this->request(
+                $order->getURL(),
+                $this->signPayloadKid(null, $order->getURL())
+            );
+            $data = json_decode((string)$response->getBody(), true);
+            if ($maxAttempts > 1 && $data['status'] != 'valid') {
+                sleep(ceil(15 / $maxAttempts));
+            }
+            $maxAttempts--;
+        } while ($maxAttempts > 0 && $data['status'] != 'valid');
+
         $certificateResponse = $this->request(
             $data['certificate'],
             $this->signPayloadKid(null, $data['certificate'])
@@ -358,8 +380,15 @@ class Client
 
         $data = json_decode((string)$response->getBody(), true);
         $accountURL = $response->getHeaderLine('Location');
-        $date = (new \DateTime())->setTimestamp(strtotime($data['createdAt']));
-        return new Account($data['contact'], $date, ($data['status'] == 'valid'), $data['initialIp'], $accountURL);
+
+        // Use the current date and time if 'createdAt' is not set
+        $createdAt = $data['createdAt'] ?? (new \DateTime())->format(\DateTime::ATOM);
+        $date = (new \DateTime())->setTimestamp(strtotime($createdAt));
+
+        // Use 'unknown' if 'initialIp' is not set
+        $initialIp = $data['initialIp'] ?? 'unknown';
+
+        return new Account($data['contact'], $date, ($data['status'] == 'valid'), $initialIp, $accountURL);
     }
 
     /**
@@ -370,9 +399,11 @@ class Client
     {
         if ($this->httpClient === null) {
             $config = [
-                'base_uri' => (
-                ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
-                    self::DIRECTORY_LIVE : self::DIRECTORY_STAGING),
+                'base_uri' => $this->getOption(
+                    'baseUri',
+                    ($this->getOption('mode', self::MODE_LIVE) == self::MODE_LIVE) ?
+                        self::DIRECTORY_LIVE : self::DIRECTORY_STAGING
+                ),
             ];
             if ($this->getOption('source_ip', false) !== false) {
                 $config['curl.options']['CURLOPT_INTERFACE'] = $this->getOption('source_ip');
@@ -479,7 +510,7 @@ class Client
     protected function init()
     {
         //Load the directories from the LE api
-        $response = $this->getHttpClient()->get('/directory');
+        $response = $this->getHttpClient()->get('');
         $result = \GuzzleHttp\json_decode((string)$response->getBody(), true);
         $this->directories = $result;
 
@@ -738,7 +769,7 @@ class Client
      */
     protected function signPayloadKid($payload, $url): array
     {
-        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
+        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode((object)$payload)) : '';
         $payload = Helper::toSafeString($payload);
         $protected = Helper::toSafeString(json_encode($this->getKID($url)));
 

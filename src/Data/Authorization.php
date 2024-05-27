@@ -80,6 +80,15 @@ class Authorization
     }
 
     /**
+     * Return this authorization digest
+     * @return string
+     */
+    public function getDigest(): string
+    {
+        return $this->digest;
+    }
+
+    /**
      * Return the HTTP challenge
      * @return Challenge|bool
      */
