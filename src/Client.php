@@ -145,16 +145,21 @@ class Client
     }
 
     /**
-     * Get an existing order by ID
+     * Get an existing order by ID or URL
      *
-     * @param $id
+     * @param string $idOrUrl
      * @return Order
      * @throws \Exception
      */
-    public function getOrder($id): Order
+    public function getOrder($idOrUrl): Order
     {
-        $url = str_replace('new-order', 'order', $this->getUrl(self::DIRECTORY_NEW_ORDER));
-        $url = $url . '/' . $this->getAccount()->getId() . '/' . $id;
+        if (strpos($idOrUrl, 'http') === 0) {
+            $url = $idOrUrl;
+        } else {
+            trigger_error("Warning: Constructing URL from ID. This may lead to unexpected behavior if the server uses a different base URL for existing orders.", E_USER_WARNING);
+            $url = str_replace('new-order', 'order', $this->getUrl(self::DIRECTORY_NEW_ORDER));
+            $url = $url . '/' . $this->getAccount()->getId() . '/' . $idOrUrl;
+        }
         $response = $this->request($url, $this->signPayloadKid(null, $url));
         $data = json_decode((string)$response->getBody(), true);
 
@@ -183,7 +188,7 @@ class Client
      */
     public function isReady(Order $order): bool
     {
-        $order = $this->getOrder($order->getId());
+        $order = $this->getOrder($order->getURL());
         return $order->getStatus() == 'ready';
     }
 
