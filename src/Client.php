@@ -290,11 +290,9 @@ class Client
      */
     public function validate(Challenge $challenge, int $maxAttempts = 15): bool
     {
-        $this->request(
+        $response = $this->request(
             $challenge->getUrl(),
-            $this->signPayloadKid([
-                'keyAuthorization' => $challenge->getToken() . '.' . $this->getDigest()
-            ], $challenge->getUrl())
+            $this->signPayloadKid([], $challenge->getUrl())
         );
 
         $data = [];
@@ -753,7 +751,7 @@ class Client
      */
     protected function signPayloadKid($payload, $url): array
     {
-        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
+        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode((object)$payload)) : '';
         $payload = Helper::toSafeString($payload);
         $protected = Helper::toSafeString(json_encode($this->getKID($url)));
 
