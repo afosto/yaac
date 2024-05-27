@@ -315,10 +315,11 @@ class Client
      * Return a certificate
      *
      * @param Order $order
+     * @param int $maxAttempts
      * @return Certificate
      * @throws \Exception
      */
-    public function getCertificate(Order $order): Certificate
+    public function getCertificate(Order $order, $maxAttempts = 15): Certificate
     {
         $privateKey = Helper::getNewKey($this->getOption('key_length', 4096));
         $csr = Helper::getCsr($order->getDomains(), $privateKey);
@@ -332,7 +333,19 @@ class Client
             )
         );
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = [];
+        do {
+            $response = $this->request(
+                $order->getURL(),
+                $this->signPayloadKid(null, $order->getURL())
+            );
+            $data = json_decode((string)$response->getBody(), true);
+            if ($maxAttempts > 1 && $data['status'] != 'valid') {
+                sleep(ceil(15 / $maxAttempts));
+            }
+            $maxAttempts--;
+        } while ($maxAttempts > 0 && $data['status'] != 'valid');
+
         $certificateResponse = $this->request(
             $data['certificate'],
             $this->signPayloadKid(null, $data['certificate'])
