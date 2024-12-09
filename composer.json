@@ -1,7 +1,8 @@
 {
-  "name": "afosto/yaac",
+  "name": "sksz/yaac",
   "description": "Yet Another ACME client: a decoupled LetsEncrypt client",
   "type": "package",
+  "version": "1.5.3",
   "keywords": [
     "afosto",
     "lets",
