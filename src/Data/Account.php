@@ -43,10 +43,8 @@ class Account
         array $contact,
         \DateTime $createdAt,
         bool $isValid,
-        string $initialIp,
         string $accountURL
     ) {
-        $this->initialIp = $initialIp;
         $this->contact = $contact;
         $this->createdAt = $createdAt;
         $this->isValid = $isValid;
