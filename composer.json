@@ -26,6 +26,7 @@
   "require": {
     "guzzlehttp/guzzle": "^6.3",
     "league/flysystem": "^1.0",
+    "league/flysystem-local": "^1.0",
     "ext-openssl": "*",
     "ext-json": "*"
   }
