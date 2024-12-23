@@ -21,11 +21,6 @@ class Account
     protected $isValid;
 
     /**
-     * @var
-     */
-    protected $initialIp;
-
-    /**
      * @var string
      */
     protected $accountURL;
@@ -36,17 +31,14 @@ class Account
      * @param array $contact
      * @param \DateTime $createdAt
      * @param bool $isValid
-     * @param string $initialIp
      * @param string $accountURL
      */
     public function __construct(
         array $contact,
         \DateTime $createdAt,
         bool $isValid,
-        string $initialIp,
         string $accountURL
     ) {
-        $this->initialIp = $initialIp;
         $this->contact = $contact;
         $this->createdAt = $createdAt;
         $this->isValid = $isValid;
@@ -87,15 +79,6 @@ class Account
     public function getContact(): array
     {
         return $this->contact;
-    }
-
-    /**
-     * Return initial IP
-     * @return string
-     */
-    public function getInitialIp(): string
-    {
-        return $this->initialIp;
     }
 
     /**
