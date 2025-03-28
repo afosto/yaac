@@ -211,3 +211,4 @@ Are you using this package, would love to know. Please send a PR to enlist your 
 - [punchsalad.com](https://punchsalad.com/ssl-certificate-generator/)
 - [Spreadly](https://spreadly.app)
 - [SslForWeb](https://sslforweb.com)
+- [SslsForFree](https://sslsforfree.com)
