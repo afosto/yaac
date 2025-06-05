@@ -6,11 +6,6 @@ class Account
 {
 
     /**
-     * @var array
-     */
-    protected $contact;
-
-    /**
      * @var \DateTime
      */
     protected $createdAt;
@@ -28,18 +23,15 @@ class Account
 
     /**
      * Account constructor.
-     * @param array $contact
      * @param \DateTime $createdAt
      * @param bool $isValid
      * @param string $accountURL
      */
     public function __construct(
-        array $contact,
         \DateTime $createdAt,
         bool $isValid,
         string $accountURL
     ) {
-        $this->contact = $contact;
         $this->createdAt = $createdAt;
         $this->isValid = $isValid;
         $this->accountURL = $accountURL;
@@ -70,15 +62,6 @@ class Account
     public function getAccountURL(): string
     {
         return $this->accountURL;
-    }
-
-    /**
-     * Return contact data
-     * @return array
-     */
-    public function getContact(): array
-    {
-        return $this->contact;
     }
 
     /**

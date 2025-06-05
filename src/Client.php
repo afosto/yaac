@@ -359,7 +359,6 @@ class Client
         $data = json_decode((string)$response->getBody(), true);
 
         return new Account(
-            $data['contact'],
             (new \DateTime())->setTimestamp(strtotime($data['createdAt'])),
             $data['status'] == 'valid',
             $response->getHeaderLine('Location')
