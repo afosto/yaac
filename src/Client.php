@@ -61,6 +61,11 @@ class Client
     const VALIDATION_DNS = 'dns-01';
 
     /**
+     * DNS persist validation
+     */
+    const VALIDATION_DNS_PERSIST = 'dns-persist-01';
+
+    /**
      * @var string
      */
     protected $nonce;
@@ -164,7 +169,8 @@ class Client
             $data['expires'],
             $data['identifiers'],
             $data['authorizations'],
-            $data['finalize']
+            $data['finalize'],
+            $data['certificate'] ?? ''
         );
     }
 
@@ -195,7 +201,7 @@ class Client
         foreach ($domains as $domain) {
             $identifiers[] =
                 [
-                    'type'  => 'dns',
+                    'type' => 'dns',
                     'value' => $domain,
                 ];
         }
@@ -239,7 +245,10 @@ class Client
                 $this->signPayloadKid(null, $authorizationURL)
             );
             $data = json_decode((string)$response->getBody(), true);
-            $authorization = new Authorization($data['identifier']['value'], $data['expires'], $this->getDigest());
+            $authorization = new Authorization($data['identifier']['value'], $data['expires'], $this->getDigest(), [
+                'wildcard' => $data['wildcard'] ?? false,
+                'accountUri' => $this->getAccount()->getAccountURL()
+            ]);
 
             foreach ($data['challenges'] as $challengeData) {
                 $challenge = new Challenge(
@@ -247,7 +256,8 @@ class Client
                     $challengeData['type'],
                     $challengeData['status'],
                     $challengeData['url'],
-                    $challengeData['token']
+                    $challengeData['token'] ?? null,
+                    $challengeData['issuer-domain-names'] ?? []
                 );
                 $authorization->addChallenge($challenge);
             }
@@ -270,6 +280,8 @@ class Client
             return $this->selfHttpTest($authorization, $maxAttempts);
         } elseif ($type == self::VALIDATION_DNS) {
             return $this->selfDNSTest($authorization, $maxAttempts);
+        } elseif ($type == self::VALIDATION_DNS_PERSIST) {
+            return $this->selfDnsPersistTest($authorization, $maxAttempts);
         }
         return false;
     }
@@ -284,12 +296,22 @@ class Client
      */
     public function validate(Challenge $challenge, int $maxAttempts = 15): bool
     {
-        $this->request(
-            $challenge->getUrl(),
-            $this->signPayloadKid([
-                'keyAuthorization' => $challenge->getToken() . '.' . $this->getDigest()
-            ], $challenge->getUrl())
-        );
+        if ($challenge->getType() == self::VALIDATION_DNS_PERSIST) {
+            $this->request(
+                $challenge->getUrl(),
+                $this->signPayloadKid(
+                    (object)[],
+                    $challenge->getUrl()
+                )
+            );
+        } else {
+            $this->request(
+                $challenge->getUrl(),
+                $this->signPayloadKid([
+                    'keyAuthorization' => $challenge->getToken() . '.' . $this->getDigest()
+                ], $challenge->getUrl())
+            );
+        }
 
         $data = [];
         do {
@@ -311,10 +333,11 @@ class Client
      * Return a certificate
      *
      * @param Order $order
+     * @param int $maxAttempts
      * @return Certificate
      * @throws \Exception
      */
-    public function getCertificate(Order $order): Certificate
+    public function getCertificate(Order $order, int $maxAttempts = 15): Certificate
     {
         $privateKey = Helper::getNewKey($this->getOption('key_length', 4096));
         $csr = Helper::getCsr($order->getDomains(), $privateKey);
@@ -329,11 +352,28 @@ class Client
         );
 
         $data = json_decode((string)$response->getBody(), true);
-        $certificateResponse = $this->request(
-            $data['certificate'],
-            $this->signPayloadKid(null, $data['certificate'])
-        );
-        $chain = $str = preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
+        $chain = null;
+
+        if (isset($data['certificate'])) {
+            $chain = $this->downloadCertificate($data['certificate']);
+        } elseif ($data['status'] == 'processing') {
+            do {
+                sleep(5);
+                $order = $this->getOrder($order->getId());
+
+                if ($order->getStatus() == 'valid') {
+                    $chain = $this->downloadCertificate($order->getCertificate());
+                    break;
+                }
+
+                $maxAttempts--;
+            } while ($maxAttempts > 0);
+        }
+
+        if (empty($chain)) {
+            throw new \LogicException("Could not get certificate");
+        }
+
         return new Certificate($privateKey, $csr, $chain);
     }
 
@@ -359,7 +399,7 @@ class Client
         $data = json_decode((string)$response->getBody(), true);
         $accountURL = $response->getHeaderLine('Location');
         $date = (new \DateTime())->setTimestamp(strtotime($data['createdAt']));
-        return new Account($data['contact'], $date, ($data['status'] == 'valid'), $accountURL);
+        return new Account($date, ($data['status'] == 'valid'), $accountURL);
     }
 
     /**
@@ -389,8 +429,8 @@ class Client
     protected function getSelfTestClient()
     {
         return new HttpClient([
-            'verify'          => false,
-            'timeout'         => 10,
+            'verify' => false,
+            'timeout' => 10,
             'connect_timeout' => 3,
             'allow_redirects' => true,
         ]);
@@ -459,15 +499,71 @@ class Client
     }
 
     /**
+     * Self-test for dns-persist-01 validation using Cloudflare's DNS API.
+     * Verifies that a _validation-persist TXT record exists with the correct issuer domain and account URI.
+     * @param Authorization $authorization
+     * @param int $maxAttempts
+     * @return bool
+     */
+    protected function selfDnsPersistTest(Authorization $authorization, int $maxAttempts)
+    {
+        $record = $authorization->getDnsPersistRecord();
+        if ($record === false) {
+            return false;
+        }
+
+        do {
+            $response = $this->getSelfTestDNSClient()->get(
+                '/dns-query',
+                [
+                    'query' => [
+                        'name' => $record->getName(),
+                        'type' => 'TXT'
+                    ]
+                ]
+            );
+            $data = json_decode((string)$response->getBody(), true);
+            if (isset($data['Answer'])) {
+                foreach ($data['Answer'] as $result) {
+                    $txtData = trim($result['data'], "\"");
+                    if ($this->txtRecordContainsAll($txtData, $record->getValue())) {
+                        return true;
+                    }
+                }
+            }
+            if ($maxAttempts > 1) {
+                sleep(ceil(45 / $maxAttempts));
+            }
+            $maxAttempts--;
+        } while ($maxAttempts > 0);
+
+        return false;
+    }
+
+    /**
+     * Check if the actual TXT record contains all expected semicolon-separated segments.
+     * @param string $actual
+     * @param string $expected
+     * @return bool
+     */
+    protected function txtRecordContainsAll(string $actual, string $expected): bool
+    {
+        $expectedSegments = array_map('trim', explode(';', $expected));
+        $actualSegments = array_map('trim', explode(';', $actual));
+
+        return empty(array_diff($expectedSegments, $actualSegments));
+    }
+
+    /**
      * Return the preconfigured client to call Cloudflare's DNS API
      * @return HttpClient
      */
     protected function getSelfTestDNSClient()
     {
         return new HttpClient([
-            'base_uri'        => 'https://cloudflare-dns.com',
+            'base_uri' => 'https://cloudflare-dns.com',
             'connect_timeout' => 10,
-            'headers'         => [
+            'headers' => [
                 'Accept' => 'application/dns-json',
             ],
         ]);
@@ -514,7 +610,7 @@ class Client
             $this->getUrl(self::DIRECTORY_NEW_ACCOUNT),
             $this->signPayloadJWK(
                 [
-                    'contact'              => [
+                    'contact' => [
                         'mailto:' . $this->getOption('username'),
                     ],
                     'termsOfServiceAgreed' => true,
@@ -535,9 +631,9 @@ class Client
         $userDirectory = preg_replace('/[^a-z0-9]+/', '-', strtolower($this->getOption('username')));
 
         return $this->getOption(
-            'basePath',
-            'le'
-        ) . DIRECTORY_SEPARATOR . $userDirectory . ($path === null ? '' : DIRECTORY_SEPARATOR . $path);
+                'basePath',
+                'le'
+            ) . DIRECTORY_SEPARATOR . $userDirectory . ($path === null ? '' : DIRECTORY_SEPARATOR . $path);
     }
 
     /**
@@ -593,7 +689,7 @@ class Client
     {
         try {
             $response = $this->getHttpClient()->request($method, $url, [
-                'json'    => $payload,
+                'json' => $payload,
                 'headers' => [
                     'Content-Type' => 'application/jose+json',
                 ]
@@ -653,9 +749,9 @@ class Client
     protected function getJWKHeader(): array
     {
         return [
-            'e'   => Helper::toSafeString(Helper::getKeyDetails($this->getAccountKey())['rsa']['e']),
+            'e' => Helper::toSafeString(Helper::getKeyDetails($this->getAccountKey())['rsa']['e']),
             'kty' => 'RSA',
-            'n'   => Helper::toSafeString(Helper::getKeyDetails($this->getAccountKey())['rsa']['n']),
+            'n' => Helper::toSafeString(Helper::getKeyDetails($this->getAccountKey())['rsa']['n']),
         ];
     }
 
@@ -674,10 +770,10 @@ class Client
             $this->nonce = $response->getHeaderLine('replay-nonce');
         }
         return [
-            'alg'   => 'RS256',
-            'jwk'   => $this->getJWKHeader(),
+            'alg' => 'RS256',
+            'jwk' => $this->getJWKHeader(),
             'nonce' => $this->nonce,
-            'url'   => $url
+            'url' => $url
         ];
     }
 
@@ -694,10 +790,10 @@ class Client
         $nonce = $response->getHeaderLine('replay-nonce');
 
         return [
-            "alg"   => "RS256",
-            "kid"   => $this->account->getAccountURL(),
+            "alg" => "RS256",
+            "kid" => $this->account->getAccountURL(),
             "nonce" => $nonce,
-            "url"   => $url
+            "url" => $url
         ];
     }
 
@@ -711,7 +807,7 @@ class Client
      */
     protected function signPayloadJWK($payload, $url): array
     {
-        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
+        $payload = (is_array($payload) || is_object($payload)) ? str_replace('\\/', '/', json_encode($payload)) : '';
         $payload = Helper::toSafeString($payload);
         $protected = Helper::toSafeString(json_encode($this->getJWK($url)));
 
@@ -723,7 +819,7 @@ class Client
 
         return [
             'protected' => $protected,
-            'payload'   => $payload,
+            'payload' => $payload,
             'signature' => Helper::toSafeString($signature),
         ];
     }
@@ -738,7 +834,7 @@ class Client
      */
     protected function signPayloadKid($payload, $url): array
     {
-        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
+        $payload = (is_array($payload) || is_object($payload)) ? str_replace('\\/', '/', json_encode($payload)) : '';
         $payload = Helper::toSafeString($payload);
         $protected = Helper::toSafeString(json_encode($this->getKID($url)));
 
@@ -749,8 +845,24 @@ class Client
 
         return [
             'protected' => $protected,
-            'payload'   => $payload,
+            'payload' => $payload,
             'signature' => Helper::toSafeString($signature),
         ];
     }
+
+    /**
+     * @param string $certificateDownloadLink
+     * @return string
+     * @throws \Exception
+     */
+    protected function downloadCertificate(string $certificateDownloadLink): string
+    {
+        $certificateResponse = $this->request(
+            $certificateDownloadLink,
+            $this->signPayloadKid(null, $certificateDownloadLink)
+        );
+
+        return preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
+    }
+
 }

@@ -4,12 +4,6 @@ namespace Afosto\Acme\Data;
 
 class Account
 {
-
-    /**
-     * @var array
-     */
-    protected $contact;
-
     /**
      * @var string
      */
@@ -28,18 +22,15 @@ class Account
 
     /**
      * Account constructor.
-     * @param array $contact
      * @param \DateTime $createdAt
      * @param bool $isValid
      * @param string $accountURL
      */
     public function __construct(
-        array $contact,
         \DateTime $createdAt,
         bool $isValid,
         string $accountURL
     ) {
-        $this->contact = $contact;
         $this->createdAt = $createdAt;
         $this->isValid = $isValid;
         $this->accountURL = $accountURL;
@@ -73,12 +64,24 @@ class Account
     }
 
     /**
+     * @deprecated
      * Return contact data
      * @return array
      */
     public function getContact(): array
     {
-        return $this->contact;
+        return [];
+    }
+
+    /**
+     * @deprecated
+     *
+     * Return initial IP
+     * @return string
+     */
+    public function getInitialIp(): string
+    {
+        return '';
     }
 
     /**

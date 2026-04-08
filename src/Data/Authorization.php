@@ -29,17 +29,29 @@ class Authorization
     protected $digest;
 
     /**
+     * @var string|null
+     */
+    protected $accountUri;
+
+    /**
+     * @var bool
+     */
+    protected $isWildcard;
+
+    /**
      * Authorization constructor.
      * @param string $domain
      * @param string $expires
      * @param string $digest
-     * @throws \Exception
+     * @param array $options
      */
-    public function __construct(string $domain, string $expires, string $digest)
+    public function __construct(string $domain, string $expires, string $digest, array $options = [])
     {
         $this->domain = $domain;
         $this->expires = (new \DateTime())->setTimestamp(strtotime($expires));
         $this->digest = $digest;
+        $this->accountUri = $options['accountUri'] ?? null;
+        $this->isWildcard = $options['wildcard'] ?? false;
     }
 
     /**
@@ -58,6 +70,16 @@ class Authorization
     public function getDomain(): string
     {
         return $this->domain;
+    }
+
+    /**
+     * Return the order is wildcard or not
+     *
+     * @return bool
+     */
+    public function isWildcard(): bool
+    {
+        return $this->isWildcard;
     }
 
 
@@ -109,6 +131,21 @@ class Authorization
     }
 
     /**
+     * Return the DNS persist challenge
+     * @return Challenge|bool
+     */
+    public function getDnsPersistChallenge()
+    {
+        foreach ($this->getChallenges() as $challenge) {
+            if ($challenge->getType() == Client::VALIDATION_DNS_PERSIST) {
+                return $challenge;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Return File object for the given challenge
      * @return File|bool
      */
@@ -136,5 +173,31 @@ class Authorization
         }
 
         return false;
+    }
+
+    /**
+     * Returns the DNS persist record object for dns-persist-01 validation
+     *
+     * @return Record|bool
+     */
+    public function getDnsPersistRecord()
+    {
+        $challenge = $this->getDnsPersistChallenge();
+        if ($challenge === false) {
+            return false;
+        }
+
+        $issuerDomainNames = $challenge->getIssuerDomainNames();
+        if (empty($issuerDomainNames) || $this->accountUri === null) {
+            return false;
+        }
+
+        $value = $issuerDomainNames[0] . '; accounturi=' . $this->accountUri;
+
+        if ($this->isWildcard) {
+            $value .= '; policy=wildcard';
+        }
+
+        return new Record('_validation-persist.' . $this->getDomain(), $value);
     }
 }

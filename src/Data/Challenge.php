@@ -26,9 +26,14 @@ class Challenge
     protected $url;
 
     /**
-     * @var string
+     * @var string|null
      */
     protected $token;
+
+    /**
+     * @var array
+     */
+    protected $issuerDomainNames;
 
     /**
      * Challenge constructor.
@@ -36,15 +41,17 @@ class Challenge
      * @param string $type
      * @param string $status
      * @param string $url
-     * @param string $token
+     * @param string|null $token
+     * @param array $issuerDomainNames
      */
-    public function __construct(string $authorizationURL, string $type, string $status, string $url, string $token)
+    public function __construct(string $authorizationURL, string $type, string $status, string $url, ?string $token = null, array $issuerDomainNames = [])
     {
         $this->authorizationURL = $authorizationURL;
         $this->type = $type;
         $this->status = $status;
         $this->url = $url;
         $this->token = $token;
+        $this->issuerDomainNames = $issuerDomainNames;
     }
 
     /**
@@ -67,9 +74,9 @@ class Challenge
 
     /**
      * Returns the token
-     * @return string
+     * @return string|null
      */
-    public function getToken(): string
+    public function getToken(): ?string
     {
         return $this->token;
     }
@@ -90,5 +97,14 @@ class Challenge
     public function getAuthorizationURL(): string
     {
         return $this->authorizationURL;
+    }
+
+    /**
+     * Returns the issuer domain names (used by dns-persist-01)
+     * @return array
+     */
+    public function getIssuerDomainNames(): array
+    {
+        return $this->issuerDomainNames;
     }
 }
