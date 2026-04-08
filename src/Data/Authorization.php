@@ -41,24 +41,18 @@ class Authorization
     /**
      * Authorization constructor.
      * @param string $domain
+     * @param string $orderDomain
      * @param string $expires
      * @param string $digest
      * @param string $accountUri
      * @throws \Exception
      */
-    public function __construct(string $domain, string $expires, string $digest, string $accountUri)
+    public function __construct(string $domain, string $orderDomain, string $expires, string $digest, string $accountUri)
     {
         $this->domain = $domain;
         $this->expires = (new \DateTime())->setTimestamp(strtotime($expires));
         $this->digest = $digest;
         $this->accountUri = $accountUri;
-    }
-
-    /**
-     * @param string $orderDomain
-     */
-    public function setOrderDomain(string $orderDomain)
-    {
         $this->orderDomain = $orderDomain;
     }
 
@@ -199,6 +193,17 @@ class Authorization
         }
 
         $value = $issuerDomainNames[0] . '; accounturi=' . $this->accountUri;
+
+        if ($this->isWildcard()) {
+            $value .= '; policy=wildcard';
+        }
+
         return new Record('_validation-persist.' . $this->getDomain(), $value);
+    }
+
+    private function isWildcard(): bool
+    {
+        $orderDomain = $this->getOrderDomain();
+        return $orderDomain && strpos($orderDomain, '*.') === 0;
     }
 }

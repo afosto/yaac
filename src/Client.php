@@ -246,8 +246,7 @@ class Client
                 $this->signPayloadKid(null, $authorizationURL)
             );
             $data = json_decode((string)$response->getBody(), true);
-            $authorization = new Authorization($data['identifier']['value'], $data['expires'], $this->getDigest(), $this->getAccount()->getAccountURL());
-            $authorization->setOrderDomain($identifiers[$index]['value']);
+            $authorization = new Authorization($data['identifier']['value'], $identifiers[$index]['value'], $data['expires'], $this->getDigest(), $this->getAccount()->getAccountURL());
 
             foreach ($data['challenges'] as $challengeData) {
                 $challenge = new Challenge(
