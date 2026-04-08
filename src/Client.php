@@ -61,6 +61,11 @@ class Client
     const VALIDATION_DNS = 'dns-01';
 
     /**
+     * DNS persist validation
+     */
+    const VALIDATION_DNS_PERSIST = 'dns-persist-01';
+
+    /**
      * @var string
      */
     protected $nonce;
@@ -234,13 +239,15 @@ class Client
     public function authorize(Order $order): array
     {
         $authorizations = [];
-        foreach ($order->getAuthorizationURLs() as $authorizationURL) {
+        $identifiers = $order->getIdentifiers();
+        foreach ($order->getAuthorizationURLs() as $index => $authorizationURL) {
             $response = $this->request(
                 $authorizationURL,
                 $this->signPayloadKid(null, $authorizationURL)
             );
             $data = json_decode((string)$response->getBody(), true);
-            $authorization = new Authorization($data['identifier']['value'], $data['expires'], $this->getDigest());
+            $authorization = new Authorization($data['identifier']['value'], $data['expires'], $this->getDigest(), $this->getAccount()->getAccountURL());
+            $authorization->setOrderDomain($identifiers[$index]['value']);
 
             foreach ($data['challenges'] as $challengeData) {
                 $challenge = new Challenge(
@@ -248,7 +255,8 @@ class Client
                     $challengeData['type'],
                     $challengeData['status'],
                     $challengeData['url'],
-                    $challengeData['token']
+                    $challengeData['token'] ?? null,
+                    $challengeData['issuer-domain-names'] ?? []
                 );
                 $authorization->addChallenge($challenge);
             }
@@ -271,6 +279,8 @@ class Client
             return $this->selfHttpTest($authorization, $maxAttempts);
         } elseif ($type == self::VALIDATION_DNS) {
             return $this->selfDNSTest($authorization, $maxAttempts);
+        } elseif ($type == self::VALIDATION_DNS_PERSIST) {
+            return $this->selfDnsPersistTest($authorization, $maxAttempts);
         }
         return false;
     }
@@ -285,14 +295,23 @@ class Client
      */
     public function validate(Challenge $challenge, int $maxAttempts = 15): bool
     {
-        $this->request(
-            $challenge->getUrl(),
-            $this->signPayloadKid([
-                'keyAuthorization' => $challenge->getToken() . '.' . $this->getDigest()
-            ], $challenge->getUrl())
-        );
+        if ($challenge->getType() == self::VALIDATION_DNS_PERSIST) {
+            $this->request(
+                $challenge->getUrl(),
+                $this->signPayloadKid(
+                    (object)[],
+                    $challenge->getUrl()
+                )
+            );
+        } else {
+            $this->request(
+                $challenge->getUrl(),
+                $this->signPayloadKid([
+                    'keyAuthorization' => $challenge->getToken() . '.' . $this->getDigest()
+                ], $challenge->getUrl())
+            );
+        }
 
-        $data = [];
         do {
             $response = $this->request(
                 $challenge->getAuthorizationURL(),
@@ -475,6 +494,56 @@ class Client
         } while ($maxAttempts > 0);
 
         return false;
+    }
+
+    /**
+     * Self DNS persist test client that uses Cloudflare's DNS API
+     * Verifies that a _validation-persist TXT record exists with the correct issuer domain and account URI
+     * @param Authorization $authorization
+     * @param $maxAttempts
+     * @return bool
+     */
+    protected function selfDnsPersistTest(Authorization $authorization, int $maxAttempts)
+    {
+        $record = $authorization->getDnsPersistRecord();
+        if ($record === false) {
+            return false;
+        }
+
+        do {
+            $response = $this->getSelfTestDNSClient()->get(
+                '/dns-query',
+                [
+                    'query' => [
+                        'name' => $record->getName(),
+                        'type' => 'TXT'
+                    ]
+                ]
+            );
+            $data = json_decode((string)$response->getBody(), true);
+            if (isset($data['Answer'])) {
+                foreach ($data['Answer'] as $result) {
+                    $txtData = trim($result['data'], "\".");
+                    if ($this->txtRecordContainsAll($txtData, $record->getValue())) {
+                        return true;
+                    }
+                }
+            }
+            if ($maxAttempts > 1) {
+                sleep(ceil(45 / $maxAttempts));
+            }
+            $maxAttempts--;
+        } while ($maxAttempts > 0);
+
+        return false;
+    }
+
+    protected function txtRecordContainsAll(string $actual, string $expected): bool
+    {
+        $expectedSegments = array_map('trim', explode(';', $expected));
+        $actualSegments = array_map('trim', explode(';', $actual));
+
+        return empty(array_diff($expectedSegments, $actualSegments));
     }
 
     /**
@@ -730,7 +799,7 @@ class Client
      */
     protected function signPayloadJWK($payload, $url): array
     {
-        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
+        $payload = (is_array($payload) || is_object($payload)) ? str_replace('\\/', '/', json_encode($payload)) : '';
         $payload = Helper::toSafeString($payload);
         $protected = Helper::toSafeString(json_encode($this->getJWK($url)));
 
@@ -757,7 +826,7 @@ class Client
      */
     protected function signPayloadKid($payload, $url): array
     {
-        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
+        $payload = (is_array($payload) || is_object($payload)) ? str_replace('\\/', '/', json_encode($payload)) : '';
         $payload = Helper::toSafeString($payload);
         $protected = Helper::toSafeString(json_encode($this->getKID($url)));
 
