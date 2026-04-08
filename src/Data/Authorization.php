@@ -51,7 +51,7 @@ class Authorization
         $this->expires = (new \DateTime())->setTimestamp(strtotime($expires));
         $this->digest = $digest;
         $this->accountUri = $options['accountUri'] ?? null;
-        $this->isWildcard = $options['isWildcard'] ?? false;
+        $this->isWildcard = $options['wildcard'] ?? false;
     }
 
     /**
@@ -70,6 +70,16 @@ class Authorization
     public function getDomain(): string
     {
         return $this->domain;
+    }
+
+    /**
+     * Return the order is wildcard or not
+     *
+     * @return bool
+     */
+    public function isWildcard(): bool
+    {
+        return $this->isWildcard;
     }
 
 
@@ -178,7 +188,7 @@ class Authorization
         }
 
         $issuerDomainNames = $challenge->getIssuerDomainNames();
-        if (empty($issuerDomainNames)) {
+        if (empty($issuerDomainNames) || $this->accountUri === null) {
             return false;
         }
 

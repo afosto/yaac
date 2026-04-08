@@ -245,9 +245,8 @@ class Client
                 $this->signPayloadKid(null, $authorizationURL)
             );
             $data = json_decode((string)$response->getBody(), true);
-            $isWildcard = $this->isWildcardDomain($data['identifier']['value'], $order);
             $authorization = new Authorization($data['identifier']['value'], $data['expires'], $this->getDigest(), [
-                'isWildcard' => $isWildcard,
+                'wildcard' => $data['wildcard'] ?? false,
                 'accountUri' => $this->getAccount()->getAccountURL()
             ]);
 
@@ -314,6 +313,7 @@ class Client
             );
         }
 
+        $data = [];
         do {
             $response = $this->request(
                 $challenge->getAuthorizationURL(),
@@ -499,10 +499,10 @@ class Client
     }
 
     /**
-     * Self DNS persist test client that uses Cloudflare's DNS API
-     * Verifies that a _validation-persist TXT record exists with the correct issuer domain and account URI
+     * Self-test for dns-persist-01 validation using Cloudflare's DNS API.
+     * Verifies that a _validation-persist TXT record exists with the correct issuer domain and account URI.
      * @param Authorization $authorization
-     * @param $maxAttempts
+     * @param int $maxAttempts
      * @return bool
      */
     protected function selfDnsPersistTest(Authorization $authorization, int $maxAttempts)
@@ -525,7 +525,7 @@ class Client
             $data = json_decode((string)$response->getBody(), true);
             if (isset($data['Answer'])) {
                 foreach ($data['Answer'] as $result) {
-                    $txtData = trim($result['data'], "\".");
+                    $txtData = trim($result['data'], "\"");
                     if ($this->txtRecordContainsAll($txtData, $record->getValue())) {
                         return true;
                     }
@@ -540,6 +540,12 @@ class Client
         return false;
     }
 
+    /**
+     * Check if the actual TXT record contains all expected semicolon-separated segments.
+     * @param string $actual
+     * @param string $expected
+     * @return bool
+     */
     protected function txtRecordContainsAll(string $actual, string $expected): bool
     {
         $expectedSegments = array_map('trim', explode(';', $expected));
@@ -859,14 +865,4 @@ class Client
         return preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
     }
 
-    private function isWildcardDomain(string $domain, Order $order): bool
-    {
-        $wildcardDomain = '*.' . $domain;
-        foreach ($order->getIdentifiers() as $identifier) {
-            if ($wildcardDomain === $identifier['value']) {
-                return true;
-            }
-        }
-        return false;
-    }
 }
