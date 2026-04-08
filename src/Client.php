@@ -239,14 +239,17 @@ class Client
     public function authorize(Order $order): array
     {
         $authorizations = [];
-        $identifiers = $order->getIdentifiers();
-        foreach ($order->getAuthorizationURLs() as $index => $authorizationURL) {
+        foreach ($order->getAuthorizationURLs() as $authorizationURL) {
             $response = $this->request(
                 $authorizationURL,
                 $this->signPayloadKid(null, $authorizationURL)
             );
             $data = json_decode((string)$response->getBody(), true);
-            $authorization = new Authorization($data['identifier']['value'], $identifiers[$index]['value'], $data['expires'], $this->getDigest(), $this->getAccount()->getAccountURL());
+            $isWildcard = $this->isWildcardDomain($data['identifier']['value'], $order);
+            $authorization = new Authorization($data['identifier']['value'], $data['expires'], $this->getDigest(), [
+                'isWildcard' => $isWildcard,
+                'accountUri' => $this->getAccount()->getAccountURL()
+            ]);
 
             foreach ($data['challenges'] as $challengeData) {
                 $challenge = new Challenge(
@@ -854,5 +857,16 @@ class Client
         );
 
         return preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
+    }
+
+    private function isWildcardDomain(string $domain, Order $order): bool
+    {
+        $wildcardDomain = '*.' . $domain;
+        foreach ($order->getIdentifiers() as $identifier) {
+            if ($wildcardDomain === $identifier['value']) {
+                return true;
+            }
+        }
+        return false;
     }
 }

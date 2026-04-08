@@ -14,11 +14,6 @@ class Authorization
     protected $domain;
 
     /**
-     * @var string|null
-     */
-    protected $orderDomain;
-
-    /**
      * @var \DateTime
      */
     protected $expires;
@@ -34,34 +29,29 @@ class Authorization
     protected $digest;
 
     /**
-     * @var string
+     * @var string|null
      */
     protected $accountUri;
 
     /**
+     * @var bool
+     */
+    protected $isWildcard;
+
+    /**
      * Authorization constructor.
      * @param string $domain
-     * @param string $orderDomain
      * @param string $expires
      * @param string $digest
-     * @param string $accountUri
-     * @throws \Exception
+     * @param array $options
      */
-    public function __construct(string $domain, string $orderDomain, string $expires, string $digest, string $accountUri)
+    public function __construct(string $domain, string $expires, string $digest, array $options = [])
     {
         $this->domain = $domain;
         $this->expires = (new \DateTime())->setTimestamp(strtotime($expires));
         $this->digest = $digest;
-        $this->accountUri = $accountUri;
-        $this->orderDomain = $orderDomain;
-    }
-
-    /**
-     * @return string|null
-     */
-    public function getOrderDomain(): ?string
-    {
-        return $this->orderDomain;
+        $this->accountUri = $options['accountUri'] ?? null;
+        $this->isWildcard = $options['isWildcard'] ?? false;
     }
 
     /**
@@ -194,16 +184,10 @@ class Authorization
 
         $value = $issuerDomainNames[0] . '; accounturi=' . $this->accountUri;
 
-        if ($this->isWildcard()) {
+        if ($this->isWildcard) {
             $value .= '; policy=wildcard';
         }
 
         return new Record('_validation-persist.' . $this->getDomain(), $value);
-    }
-
-    private function isWildcard(): bool
-    {
-        $orderDomain = $this->getOrderDomain();
-        return $orderDomain && strpos($orderDomain, '*.') === 0;
     }
 }
