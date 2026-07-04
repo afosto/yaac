@@ -5,7 +5,7 @@ namespace Afosto\Acme\Data;
 class Account
 {
     /**
-     * @var string
+     * @var \DateTime
      */
     protected $createdAt;
 

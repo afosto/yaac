@@ -76,7 +76,7 @@ class Client
     protected $privateKeyDetails;
 
     /**
-     * @var string
+     * @var \OpenSSLAsymmetricKey
      */
     protected $accountKey;
 
@@ -299,7 +299,7 @@ class Client
             );
             $data = json_decode((string)$response->getBody(), true);
             if ($maxAttempts > 1 && $data['status'] != 'valid') {
-                sleep(ceil(15 / $maxAttempts));
+                sleep((int) ceil(15 / $maxAttempts));
             }
             $maxAttempts--;
         } while ($maxAttempts > 0 && $data['status'] != 'valid');
@@ -450,7 +450,7 @@ class Client
                 }
             }
             if ($maxAttempts > 1) {
-                sleep(ceil(45 / $maxAttempts));
+                sleep((int) ceil(45 / $maxAttempts));
             }
             $maxAttempts--;
         } while ($maxAttempts > 0);
@@ -526,11 +526,8 @@ class Client
 
     /**
      * Get a formatted path
-     *
-     * @param null $path
-     * @return string
      */
-    protected function getPath($path = null): string
+    protected function getPath(?string $path = null): string
     {
         $userDirectory = preg_replace('/[^a-z0-9]+/', '-', strtolower($this->getOption('username')));
 
@@ -552,12 +549,11 @@ class Client
     /**
      * Get a defined option
      *
-     * @param      $key
-     * @param null $default
+     * @param mixed|null $default
      *
      * @return mixed|null
      */
-    protected function getOption($key, $default = null)
+    protected function getOption(string $key, $default = null)
     {
         if (isset($this->config[$key])) {
             return $this->config[$key];
@@ -609,12 +605,9 @@ class Client
     /**
      * Get the LE directory path
      *
-     * @param $directory
-     *
-     * @return mixed
      * @throws \Exception
      */
-    protected function getUrl($directory): string
+    protected function getUrl(string $directory): string
     {
         if (isset($this->directories[$directory])) {
             return $this->directories[$directory];
@@ -627,18 +620,20 @@ class Client
     /**
      * Get the key
      *
-     * @return bool|resource|string
+     * @return \OpenSSLAsymmetricKey
      * @throws \Exception
      */
     protected function getAccountKey()
     {
         if ($this->accountKey === null) {
-            $this->accountKey = openssl_pkey_get_private($this->getFilesystem()
+            $accountKey = openssl_pkey_get_private($this->getFilesystem()
                 ->read($this->getPath('account.pem')));
-        }
 
-        if ($this->accountKey === false) {
-            throw new \Exception('Invalid account key');
+            if ($accountKey === false) {
+                throw new \Exception('Invalid account key');
+            }
+
+            $this->accountKey = $accountKey;
         }
 
         return $this->accountKey;

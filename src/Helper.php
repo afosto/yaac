@@ -86,7 +86,7 @@ class Helper
             }, $domains)),
         ];
 
-        $fn = tempnam(sys_get_temp_dir(), md5(microtime(true)));
+        $fn = tempnam(sys_get_temp_dir(), md5((string) microtime(true)));
         file_put_contents($fn, implode("\n", $config));
         $csr = openssl_csr_new([
             'countryName' => 'NL',
