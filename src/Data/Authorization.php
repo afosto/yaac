@@ -7,7 +7,6 @@ use Afosto\Acme\Helper;
 
 class Authorization
 {
-
     /**
      * @var string
      */

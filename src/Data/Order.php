@@ -1,11 +1,9 @@
 <?php
 
-
 namespace Afosto\Acme\Data;
 
 class Order
 {
-
     /**
      * @var string
      */

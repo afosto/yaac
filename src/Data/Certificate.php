@@ -6,7 +6,6 @@ use Afosto\Acme\Helper;
 
 class Certificate
 {
-
     /**
      * @var string
      */

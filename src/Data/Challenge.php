@@ -4,7 +4,6 @@ namespace Afosto\Acme\Data;
 
 class Challenge
 {
-
     /**
      * @var string
      */
