@@ -11,7 +11,6 @@ use GuzzleHttp\Exception\ClientException;
  */
 class Helper
 {
-
     /**
      * Formatter
      * @param $pem

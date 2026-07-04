@@ -32,13 +32,18 @@
     "league/flysystem": "^3.0"
   },
   "require-dev": {
-    "php-parallel-lint/php-parallel-lint": "^1.4"
+    "php-parallel-lint/php-parallel-lint": "^1.4",
+    "squizlabs/php_codesniffer": "^4.0"
   },
   "scripts": {
     "lint": [
       "parallel-lint --exclude vendor ."
     ],
+    "sniff": [
+      "phpcs --standard=PSR12 src/"
+    ],
     "test": [
+      "@sniff",
       "@lint"
     ]
   },

@@ -18,47 +18,47 @@ class Client
     /**
      * Live url
      */
-    const DIRECTORY_LIVE = 'https://acme-v02.api.letsencrypt.org/directory';
+    public const DIRECTORY_LIVE = 'https://acme-v02.api.letsencrypt.org/directory';
 
     /**
      * Staging url
      */
-    const DIRECTORY_STAGING = 'https://acme-staging-v02.api.letsencrypt.org/directory';
+    public const DIRECTORY_STAGING = 'https://acme-staging-v02.api.letsencrypt.org/directory';
 
     /**
      * Flag for production
      */
-    const MODE_LIVE = 'live';
+    public const MODE_LIVE = 'live';
 
     /**
      * Flag for staging
      */
-    const MODE_STAGING = 'staging';
+    public const MODE_STAGING = 'staging';
 
     /**
      * New account directory
      */
-    const DIRECTORY_NEW_ACCOUNT = 'newAccount';
+    public const DIRECTORY_NEW_ACCOUNT = 'newAccount';
 
     /**
      * Nonce directory
      */
-    const DIRECTORY_NEW_NONCE = 'newNonce';
+    public const DIRECTORY_NEW_NONCE = 'newNonce';
 
     /**
      * Order certificate directory
      */
-    const DIRECTORY_NEW_ORDER = 'newOrder';
+    public const DIRECTORY_NEW_ORDER = 'newOrder';
 
     /**
      * Http validation
      */
-    const VALIDATION_HTTP = 'http-01';
+    public const VALIDATION_HTTP = 'http-01';
 
     /**
      * DNS validation
      */
-    const VALIDATION_DNS = 'dns-01';
+    public const VALIDATION_DNS = 'dns-01';
 
     /**
      * @var string
