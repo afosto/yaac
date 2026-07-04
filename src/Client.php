@@ -141,7 +141,7 @@ class Client
     /**
      * Get an existing order by ID
      *
-     * @param $id
+     * @param string|int $id
      * @return Order
      * @throws \Exception
      */
@@ -399,7 +399,7 @@ class Client
     /**
      * Self HTTP test
      * @param Authorization $authorization
-     * @param $maxAttempts
+     * @param int $maxAttempts
      * @return bool
      */
     protected function selfHttpTest(Authorization $authorization, $maxAttempts)
@@ -426,7 +426,7 @@ class Client
     /**
      * Self DNS test client that uses Cloudflare's DNS API
      * @param Authorization $authorization
-     * @param $maxAttempts
+     * @param int $maxAttempts
      * @return bool
      */
     protected function selfDNSTest(Authorization $authorization, $maxAttempts)
@@ -476,7 +476,7 @@ class Client
     /**
      * Initialize the client
      */
-    protected function init()
+    protected function init(): void
     {
         //Load the directories from the LE api
         $response = $this->getHttpClient()->get('/directory');
@@ -489,7 +489,7 @@ class Client
         $this->account = $this->getAccount();
     }
 
-    protected function loadKeys()
+    protected function loadKeys(): void
     {
         //Make sure a private key is in place
         if ($this->getFilesystem()->has($this->getPath('account.pem')) === false) {
@@ -508,7 +508,7 @@ class Client
      *
      * @throws \Exception
      */
-    protected function tosAgree()
+    protected function tosAgree(): void
     {
         $this->request(
             $this->getUrl(self::DIRECTORY_NEW_ACCOUNT),
@@ -580,7 +580,7 @@ class Client
     /**
      * Send a request to the LE API
      *
-     * @param $url
+     * @param string $url
      * @param array $payload
      * @param string $method
      * @return ResponseInterface
@@ -657,7 +657,7 @@ class Client
     /**
      * Get JWK envelope
      *
-     * @param $url
+     * @param string $url
      * @return array
      * @throws \Exception
      */
@@ -679,8 +679,7 @@ class Client
     /**
      * Get KID envelope
      *
-     * @param $url
-     * @param $kid
+     * @param string $url
      * @return array
      */
     protected function getKID($url): array
@@ -699,8 +698,8 @@ class Client
     /**
      * Transform the payload to the JWS format
      *
-     * @param $payload
-     * @param $url
+     * @param ?array $payload
+     * @param string $url
      * @return array
      * @throws \Exception
      */
@@ -726,8 +725,8 @@ class Client
     /**
      * Transform the payload to the KID format
      *
-     * @param $payload
-     * @param $url
+     * @param ?array $payload
+     * @param string $url
      * @return array
      * @throws \Exception
      */

@@ -38,9 +38,9 @@ class Certificate
 
     /**
      * Certificate constructor.
-     * @param $privateKey
-     * @param $csr
-     * @param $chain
+     * @param string $privateKey
+     * @param string $csr
+     * @param string $chain
      * @throws \Exception
      */
     public function __construct($privateKey, $csr, $chain)
