@@ -406,14 +406,21 @@ class Client
     {
         do {
             $maxAttempts--;
+
+            $file = $authorization->getFile();
+
+            if ($file === false) {
+                throw new \RuntimeException('Could not get HTTP challenge file');
+            }
+
             try {
                 $response = $this->getSelfTestClient()->request(
                     'GET',
                     'http://' . $authorization->getDomain() . '/.well-known/acme-challenge/' .
-                    $authorization->getFile()->getFilename()
+                    $file->getFilename()
                 );
                 $contents = (string)$response->getBody();
-                if ($contents == $authorization->getFile()->getContents()) {
+                if ($contents == $file->getContents()) {
                     return true;
                 }
             } catch (RequestException $e) {
@@ -432,11 +439,17 @@ class Client
     protected function selfDNSTest(Authorization $authorization, $maxAttempts)
     {
         do {
+            $txtRecord = $authorization->getTxtRecord();
+
+            if ($txtRecord === false) {
+                throw new \RuntimeException('Could not get DNS challenge record');
+            }
+
             $response = $this->getSelfTestDNSClient()->get(
                 '/dns-query',
                 [
                     'query' => [
-                        'name' => $authorization->getTxtRecord()->getName(),
+                        'name' => $txtRecord->getName(),
                         'type' => 'TXT'
                     ]
                 ]
@@ -444,7 +457,7 @@ class Client
             $data = json_decode((string)$response->getBody(), true);
             if (isset($data['Answer'])) {
                 foreach ($data['Answer'] as $result) {
-                    if (trim($result['data'], "\"") == $authorization->getTxtRecord()->getValue()) {
+                    if (trim($result['data'], "\"") == $txtRecord->getValue()) {
                         return true;
                     }
                 }
@@ -480,7 +493,16 @@ class Client
     {
         //Load the directories from the LE api
         $response = $this->getHttpClient()->get('/directory');
-        $result = \GuzzleHttp\json_decode((string)$response->getBody(), true);
+        $result = json_decode((string) $response->getBody(), true);
+
+        if (\JSON_ERROR_NONE !== \json_last_error()) {
+            throw new \RuntimeException('Lets Encrypt directories did not return an array: ' . \json_last_error_msg());
+        }
+
+        if (! is_array($result)) {
+            throw new \RuntimeException('Lets Encrypt directories did not return an array');
+        }
+
         $this->directories = $result;
 
         //Prepare LE account
@@ -500,7 +522,18 @@ class Client
         }
         $privateKey = $this->getFilesystem()->read($this->getPath('account.pem'));
         $privateKey = openssl_pkey_get_private($privateKey);
-        $this->privateKeyDetails = openssl_pkey_get_details($privateKey);
+
+        if ($privateKey === false) {
+            throw new \Exception('Private key was false somehow');
+        }
+
+        $privateKeyDetails = openssl_pkey_get_details($privateKey);
+
+        if ($privateKeyDetails === false) {
+            throw new \Exception('Private key details was false somehow');
+        }
+
+        $this->privateKeyDetails = $privateKeyDetails;
     }
 
     /**
@@ -571,7 +604,13 @@ class Client
     protected function getDigest(): string
     {
         if ($this->digest === null) {
-            $this->digest = Helper::toSafeString(hash('sha256', json_encode($this->getJWKHeader()), true));
+            $jwkHeader = json_encode($this->getJWKHeader());
+
+            if ($jwkHeader === false) {
+                throw new \Exception('JWK header could not be encoded to JSON somehow');
+            }
+
+            $this->digest = Helper::toSafeString(hash('sha256', $jwkHeader, true));
         }
 
         return $this->digest;
@@ -705,9 +744,27 @@ class Client
      */
     protected function signPayloadJWK($payload, $url): array
     {
-        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
+        if (is_array($payload)) {
+            $payload = json_encode($payload);
+
+            if ($payload === false) {
+                throw new \InvalidArgumentException('payload could not be encoded to JSON, is it correct?');
+            }
+
+            $payload = str_replace('\\/', '/', $payload);
+        } else {
+            $payload = '';
+        }
+
         $payload = Helper::toSafeString($payload);
-        $protected = Helper::toSafeString(json_encode($this->getJWK($url)));
+
+        $jwk = json_encode($this->getJWK($url));
+
+        if ($jwk === false) {
+            throw new \InvalidArgumentException('JWK could not be encoded to JSON, is the url correct?');
+        }
+
+        $protected = Helper::toSafeString($jwk);
 
         $result = openssl_sign($protected . '.' . $payload, $signature, $this->getAccountKey(), "SHA256");
 
@@ -732,9 +789,27 @@ class Client
      */
     protected function signPayloadKid($payload, $url): array
     {
-        $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
+        if (is_array($payload)) {
+            $payload = json_encode($payload);
+
+            if ($payload === false) {
+                throw new \InvalidArgumentException('payload could not be encoded to JSON, is it correct?');
+            }
+
+            $payload = str_replace('\\/', '/', $payload);
+        } else {
+            $payload = '';
+        }
+
         $payload = Helper::toSafeString($payload);
-        $protected = Helper::toSafeString(json_encode($this->getKID($url)));
+
+        $kid = json_encode($this->getKID($url));
+
+        if ($kid === false) {
+            throw new \InvalidArgumentException('KID could not be encoded to JSON, is the url correct?');
+        }
+
+        $protected = Helper::toSafeString($kid);
 
         $result = openssl_sign($protected . '.' . $payload, $signature, $this->getAccountKey(), "SHA256");
         if ($result === false) {

@@ -66,7 +66,14 @@ class Order
         $this->domains = $domains;
         $this->url = $url;
         $this->status = $status;
-        $this->expiresAt = (new \DateTime())->setTimestamp(strtotime($expiresAt));
+
+        $expiresAt = strtotime($expiresAt);
+
+        if ($expiresAt === false) {
+            throw new \InvalidArgumentException('expiresAt must be a string which works in strtotime');
+        }
+
+        $this->expiresAt = (new \DateTime())->setTimestamp($expiresAt);
         $this->identifiers = $identifiers;
         $this->authorizations = $authorizations;
         $this->finalizeURL = $finalizeURL;

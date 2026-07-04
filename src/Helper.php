@@ -14,12 +14,17 @@ class Helper
     /**
      * Formatter
      * @param string $pem
-     * @return false|string
+     * @return string
      * @see https://eidson.info/post/php_eol_is_broken
      */
     public static function toDer($pem)
     {
         $lines = preg_split('/\n|\r\n?/', $pem);
+
+        if ($lines === false) {
+            throw new \InvalidArgumentException('Could not split PEM for some reason');
+        }
+
         $lines = array_slice($lines, 1, -1);
 
         return base64_decode(implode('', $lines));
@@ -52,11 +57,15 @@ class Helper
      */
     public static function getNewKey(int $keyLength): string
     {
-
         $key = openssl_pkey_new([
             'private_key_bits' => $keyLength,
             'private_key_type' => OPENSSL_KEYTYPE_RSA,
         ]);
+
+        if ($key === false) {
+            throw new \Exception('Could not create a key');
+        }
+
         openssl_pkey_export($key, $pem);
 
         return $pem;
@@ -100,6 +109,10 @@ class Helper
 
         if ($csr === false) {
             throw new \Exception('Could not create a CSR');
+        }
+
+        if ($csr === true) {
+            throw new \Exception('CSR created but could not be signed');
         }
 
         if (openssl_csr_export($csr, $result) == false) {
