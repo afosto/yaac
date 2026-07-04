@@ -11,7 +11,7 @@
     "encrypt",
     "letsencrypt"
   ],
-  "homepage": "https://afosto.com",
+  "homepage": "https://github.com/afosto/yaac",
   "license": "Apache-2.0",
   "authors": [
     {
@@ -25,10 +25,24 @@
     }
   },
   "require": {
-    "guzzlehttp/guzzle": "^6.3|^7.0",
-    "league/flysystem": "^1.0|^3.0",
-
+    "php": "^8.2",
     "ext-openssl": "*",
-    "ext-json": "*"
+    "ext-json": "*",
+    "guzzlehttp/guzzle": "^7.0",
+    "league/flysystem": "^3.0"
+  },
+  "require-dev": {
+    "php-parallel-lint/php-parallel-lint": "^1.4"
+  },
+  "scripts": {
+    "lint": [
+      "parallel-lint --exclude vendor ."
+    ],
+    "test": [
+      "@lint"
+    ]
+  },
+  "config": {
+    "sort-packages": true
   }
 }
