@@ -333,7 +333,13 @@ class Client
             $data['certificate'],
             $this->signPayloadKid(null, $data['certificate'])
         );
-        $chain = $str = preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
+
+        $chain = preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
+
+        if ($chain === null) {
+            throw new \RuntimeException('Could not remove tabs and newlines from certificate response');
+        }
+
         return new Certificate($privateKey, $csr, $chain);
     }
 
