@@ -45,7 +45,7 @@ class Authorization
      * Add a challenge to the authorization
      * @param Challenge $challenge
      */
-    public function addChallenge(Challenge $challenge)
+    public function addChallenge(Challenge $challenge): void
     {
         $this->challenges[] = $challenge;
     }

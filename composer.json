@@ -38,7 +38,7 @@
   },
   "scripts": {
     "analyse": [
-      "phpstan analyse --memory-limit 2G --level 5 src"
+      "phpstan analyse --memory-limit 2G --level 6 src"
     ],
     "lint": [
       "parallel-lint --exclude vendor ."

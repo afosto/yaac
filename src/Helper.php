@@ -13,7 +13,7 @@ class Helper
 {
     /**
      * Formatter
-     * @param $pem
+     * @param string $pem
      * @return false|string
      * @see https://eidson.info/post/php_eol_is_broken
      */
@@ -28,7 +28,7 @@ class Helper
     /**
      * Return certificate expiry date
      *
-     * @param $certificate
+     * @param string $certificate
      *
      * @return \DateTime
      * @throws \Exception
@@ -66,7 +66,7 @@ class Helper
      * Get a new CSR
      *
      * @param array $domains
-     * @param       $key
+     * @param \OpenSSLAsymmetricKey|string $key
      *
      * @return string
      * @throws \Exception
@@ -114,7 +114,7 @@ class Helper
     /**
      * Make a safe base64 string
      *
-     * @param $data
+     * @param string $data
      *
      * @return string
      */
@@ -125,6 +125,8 @@ class Helper
 
     /**
      * Get the key information
+     *
+     * @param \OpenSSLAsymmetricKey $key
      *
      * @return array
      * @throws \Exception
