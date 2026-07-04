@@ -37,7 +37,14 @@ class Authorization
     public function __construct(string $domain, string $expires, string $digest)
     {
         $this->domain = $domain;
-        $this->expires = (new \DateTime())->setTimestamp(strtotime($expires));
+
+        $expires = strtotime($expires);
+
+        if ($expires === false) {
+            throw new \InvalidArgumentException('expires must be a string which works in strtotime');
+        }
+
+        $this->expires = (new \DateTime())->setTimestamp($expires);
         $this->digest = $digest;
     }
 
@@ -80,7 +87,7 @@ class Authorization
 
     /**
      * Return the HTTP challenge
-     * @return Challenge|bool
+     * @return Challenge|false
      */
     public function getHttpChallenge()
     {
@@ -94,7 +101,7 @@ class Authorization
     }
 
     /**
-     * @return Challenge|bool
+     * @return Challenge|false
      */
     public function getDnsChallenge()
     {
@@ -109,7 +116,7 @@ class Authorization
 
     /**
      * Return File object for the given challenge
-     * @return File|bool
+     * @return File|false
      */
     public function getFile()
     {
@@ -123,7 +130,7 @@ class Authorization
     /**
      * Returns the DNS record object
      *
-     * @return Record|bool
+     * @return Record|false
      */
     public function getTxtRecord()
     {
