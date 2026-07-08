@@ -171,6 +171,36 @@ foreach ($authorizations as $authorization) {
 The code above will first perform a self test and, if successful, will do 15 attempts to ask Let’s Encrypt to validate the challenge (with 1 second intervals) and
 retrieve an updated status (it might take Let’s Encrypt a few seconds to validate the challenge).
 
+In the event the validation fails more detail can be found by interrogating the authorizations/challenges for example:
+```php
+$validated = $client->validate($authorization->getDnsChallenge(), 15);
+if(!$validated){
+    $authorizations = $client->authorize($order);
+    /** @var \Afosto\Acme\Data\Authorization $authorization */
+    foreach($authorizations as $authorization){
+        echo 'processing authorization for: '.$authorization->getDomain().PHP_EOL;
+        
+        /** @var \Afosto\Acme\Data\Challenge $challenge */
+        foreach($authorization->getChallenges() as $challenge){
+            echo 'processing challenge: '.$challenge->getToken().' ('.$challenge->getType().')'.PHP_EOL;
+            echo 'status: '.$challenge->getStatus().PHP_EOL;
+            if($challenge->hasError()){
+                echo 'error:'.PHP_EOL;
+                echo '    type: '.$challenge->getError()->getType().PHP_EOL;
+                echo '    status: '.$challenge->getError()->getStatus().PHP_EOL;
+                echo '    detail: '.$challenge->getError()->getDetail().PHP_EOL;
+            }
+            if($challenge->hasValidationRecord()){
+                echo 'validation record'.PHP_EOL.print_r($challenge->getValidationRecord(), true).PHP_EOL;
+            }
+            echo 'validated at: '.$challenge->getValidated().PHP_EOL;
+        }
+    }
+}
+```
+- The challenge error will give you information about: the specific error code, the response status code, a human description of the error
+- The validation record will give imformation about the request made to validate (endpoint, resolved address etc...)
+
 
 ### Get the certificate
 
