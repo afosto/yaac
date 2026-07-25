@@ -149,23 +149,13 @@ class Client
     {
         $url = str_replace('new-order', 'order', $this->getUrl(self::DIRECTORY_NEW_ORDER));
         $url = $url . '/' . $this->getAccount()->getId() . '/' . $id;
-        $response = $this->request($url, $this->signPayloadKid(null, $url));
-        $data = json_decode((string)$response->getBody(), true);
 
-        $domains = [];
-        foreach ($data['identifiers'] as $identifier) {
-            $domains[] = $identifier['value'];
-        }
-
-        return new Order(
-            $domains,
+        return $this->orderFromRequest(
             $url,
-            $data['status'],
-            $data['expires'],
-            $data['identifiers'],
-            $data['authorizations'],
-            $data['finalize'],
-            $data['certificate'] ?? null
+            $this->signPayloadKid(
+                null,
+                $url
+            )
         );
     }
 
@@ -202,27 +192,16 @@ class Client
         }
 
         $url = $this->getUrl(self::DIRECTORY_NEW_ORDER);
-        $response = $this->request($url, $this->signPayloadKid(
-            [
-                'identifiers' => $identifiers,
-            ],
-            $url
-        ));
 
-        $data = json_decode((string)$response->getBody(), true);
-        $order = new Order(
-            $domains,
-            $response->getHeaderLine('location'),
-            $data['status'],
-            $data['expires'],
-            $data['identifiers'],
-            $data['authorizations'],
-            $data['finalize'],
-            $data['certificate'] ?? null
+        return $this->orderFromRequest(
+            $url,
+            $this->signPayloadKid(
+                [
+                    'identifiers' => $identifiers,
+                ],
+                $url
+            )
         );
-
-
-        return $order;
     }
 
     /**
@@ -322,6 +301,8 @@ class Client
         $csr = Helper::getCsr($order->getDomains(), $privateKey);
         $der = Helper::toDer($csr);
 
+        // technically, this could be orderFromRequest but
+        // then you wouldn't get Retry-After
         $response = $this->request(
             $order->getFinalizeURL(),
             $this->signPayloadKid(
@@ -648,6 +629,34 @@ class Client
         }
 
         return $response;
+    }
+
+    /**
+     * @param $url
+     * @param array $payload
+     * @param string $method
+     */
+    protected function orderFromRequest($url, $payload = [], $method = 'POST'): Order
+    {
+        $response = $this->request($url, $payload, $method);
+
+        $data = json_decode((string) $response->getBody(), true);
+
+        $domains = [];
+        foreach ($data['identifiers'] as $identifier) {
+            $domains[] = $identifier['value'];
+        }
+
+        return new Order(
+            $domains,
+            $response->getHeaderLine('location'),
+            $data['status'],
+            $data['expires'],
+            $data['identifiers'],
+            $data['authorizations'],
+            $data['finalize'],
+            $data['certificate'] ?? null
+        );
     }
 
     /**
