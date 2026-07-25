@@ -164,7 +164,8 @@ class Client
             $data['expires'],
             $data['identifiers'],
             $data['authorizations'],
-            $data['finalize']
+            $data['finalize'],
+            $data['certificate'] ?? null
         );
     }
 
@@ -216,7 +217,8 @@ class Client
             $data['expires'],
             $data['identifiers'],
             $data['authorizations'],
-            $data['finalize']
+            $data['finalize'],
+            $data['certificate'] ?? null
         );
 
 
@@ -329,9 +331,51 @@ class Client
         );
 
         $data = json_decode((string)$response->getBody(), true);
+
+        $certificateURL = null;
+
+        // normally we'd specify an argument for this but because of the Retry After,
+        // its unlikely to need more than one attempt
+        $maxAttempts = 15;
+
+        if (isset($data['certificate'])) {
+            /**
+             * order is now finalized, certificate was available immediately
+             */
+            $certificateURL = $data['certificate'];
+        } elseif ($data['status'] == 'processing') {
+            /**
+             * order is now finalized, certificate was not created immediately
+             * probably because using staging
+             *
+             * must now wait to get order again until certificate can be retrieved
+             */
+
+            $retryAfter = $response->getHeaderLine('Retry-After');
+            sleep(is_numeric($retryAfter) ? (int) $retryAfter : 1);
+
+            do {
+                $order = $this->getOrder($order->getId());
+
+                if ($order->getStatus() == 'valid') {
+                    $certificateURL = $order->getCertificateURL();
+                    break;
+                }
+
+                $maxAttempts--;
+                sleep(1);
+            } while ($maxAttempts > 0);
+        }
+
+        if ($certificateURL === null) {
+            throw new \RuntimeException(
+                'Certificate download link could not be retrieved. Order was never valid in time.'
+            );
+        }
+
         $certificateResponse = $this->request(
-            $data['certificate'],
-            $this->signPayloadKid(null, $data['certificate'])
+            $certificateURL,
+            $this->signPayloadKid(null, $certificateURL)
         );
         $chain = $str = preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
         return new Certificate($privateKey, $csr, $chain);
