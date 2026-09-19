@@ -86,7 +86,7 @@ class Client
     protected $filesystem;
 
     /**
-     * @var array
+     * @var array{string?:string}
      */
     protected $directories = [];
 
@@ -106,30 +106,25 @@ class Client
     protected $httpClient;
 
     /**
-     * @var array
-     */
-    protected $config;
-
-    /**
-     * Client constructor.
+     * @param array{fs:Filesystem,mode:string,username:string,basePath?:string,source_ip?:string} $config
      *
-     * @param array $config
+     * Required:
+     * mode - The mode for ACME (production / staging)
+     * fs - Filesystem for storage of static data
+     * username - The acme username
      *
-     * @type string $mode The mode for ACME (production / staging)
-     * @type Filesystem $fs Filesystem for storage of static data
-     * @type string $basePath The base path for the filesystem (used to store account information and csr / keys
-     * @type string $username The acme username
-     * @type string $source_ip The source IP for Guzzle (via curl.options) to bind to (defaults to 0.0.0.0 [OS default])
-     * }
+     * Optional:
+     * basePath - The base path for the filesystem (used to store account information and csr / keys
+     * source_ip - The source IP for Guzzle (via curl.options) to bind to (defaults to 0.0.0.0 [OS default])
      */
-    public function __construct($config = [])
-    {
-        $this->config = $config;
-        if ($this->getOption('fs', false)) {
-            $this->filesystem = $this->getOption('fs');
-        } else {
+    public function __construct(
+        protected array $config
+    ) {
+        if ($this->getOption('fs', false) === false) {
             throw new \LogicException('No filesystem option supplied');
         }
+
+        $this->filesystem = $this->getOption('fs');
 
         if ($this->getOption('username', false) === false) {
             throw new \LogicException('Username not provided');
@@ -176,7 +171,7 @@ class Client
     /**
      * Create a new order
      *
-     * @param array $domains
+     * @param array<string> $domains
      * @return Order
      * @throws \Exception
      */
@@ -208,7 +203,7 @@ class Client
      * Obtain authorizations
      *
      * @param Order $order
-     * @return array|Authorization[]
+     * @return Authorization[]
      * @throws \Exception
      */
     public function authorize(Order $order): array
@@ -651,7 +646,7 @@ class Client
      * Send a request to the LE API
      *
      * @param string $url
-     * @param array $payload
+     * @param array<mixed,mixed> $payload
      * @param string $method
      * @return ResponseInterface
      */
@@ -674,7 +669,7 @@ class Client
 
     /**
      * @param string $url
-     * @param array $payload
+     * @param array<mixed,mixed> $payload
      * @param string $method
      */
     protected function orderFromRequest($url, $payload = [], $method = 'POST'): Order
@@ -740,7 +735,7 @@ class Client
     /**
      * Get the header
      *
-     * @return array
+     * @return array{e:string,kty:string,n:string}
      * @throws \Exception
      */
     protected function getJWKHeader(): array
@@ -756,7 +751,7 @@ class Client
      * Get JWK envelope
      *
      * @param string $url
-     * @return array
+     * @return array{alg:'RS256',jwk:array{e:string,kty:string,n:string},nonce:string,url:string}
      * @throws \Exception
      */
     protected function getJWK($url): array
@@ -778,7 +773,7 @@ class Client
      * Get KID envelope
      *
      * @param string $url
-     * @return array
+     * @return array{alg:string,kid:string,nonce:string,url:string}
      */
     protected function getKID($url): array
     {
@@ -796,9 +791,9 @@ class Client
     /**
      * Transform the payload to the JWS format
      *
-     * @param ?array $payload
+     * @param ?array<mixed,mixed> $payload
      * @param string $url
-     * @return array
+     * @return array{protected:string,payload:string,signature:string}
      * @throws \Exception
      */
     protected function signPayloadJWK($payload, $url): array
@@ -841,9 +836,9 @@ class Client
     /**
      * Transform the payload to the KID format
      *
-     * @param ?array $payload
+     * @param ?array<mixed,mixed> $payload
      * @param string $url
-     * @return array
+     * @return array{protected:string,payload:string,signature:string}
      * @throws \Exception
      */
     protected function signPayloadKid($payload, $url): array

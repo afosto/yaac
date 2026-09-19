@@ -20,12 +20,12 @@ class Order
     protected $expiresAt;
 
     /**
-     * @var array
+     * @var array<array{type:string,value:string}>
      */
     protected $identifiers;
 
     /**
-     * @var array
+     * @var array<string>
      */
     protected $authorizations;
 
@@ -35,7 +35,7 @@ class Order
     protected $finalizeURL;
 
     /**
-     * @var array
+     * @var array<string>
      */
     protected $domains;
 
@@ -46,12 +46,12 @@ class Order
 
     /**
      * Order constructor.
-     * @param array $domains
+     * @param array<string> $domains
      * @param string $url
      * @param string $status
      * @param string $expiresAt
-     * @param array $identifiers
-     * @param array $authorizations
+     * @param array<array{type:string,value:string}> $identifiers
+     * @param array<string> $authorizations
      * @param string $finalizeURL
      * @param string|null $certificateURL
      * @throws \Exception
@@ -108,7 +108,7 @@ class Order
 
     /**
      * Return set of authorizations for the order
-     * @return string[]
+     * @return array<string>
      */
     public function getAuthorizationURLs(): array
     {
@@ -135,7 +135,7 @@ class Order
 
     /**
      * Returs domains as identifiers
-     * @return array
+     * @return array<array{type:string,value:string}>
      */
     public function getIdentifiers(): array
     {
@@ -153,7 +153,7 @@ class Order
 
     /**
      * Returns domains for the order
-     * @return array
+     * @return array<string>
      */
     public function getDomains(): array
     {

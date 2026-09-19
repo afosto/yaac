@@ -74,7 +74,7 @@ class Helper
     /**
      * Get a new CSR
      *
-     * @param array $domains
+     * @param array<string> $domains
      * @param \OpenSSLAsymmetricKey|string $key
      *
      * @return string
@@ -141,7 +141,7 @@ class Helper
      *
      * @param \OpenSSLAsymmetricKey $key
      *
-     * @return array
+     * @return array<string,mixed>
      * @throws \Exception
      */
     public static function getKeyDetails($key): array
@@ -157,7 +157,7 @@ class Helper
     /**
      * Split a two certificate bundle into separate multi line string certificates
      * @param string $chain
-     * @return array
+     * @return array<string>
      * @throws \Exception
      */
     public static function splitCertificate(string $chain): array
