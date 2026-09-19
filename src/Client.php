@@ -751,7 +751,7 @@ class Client
     {
         //Require a nonce to be available
         if ($this->nonce === null) {
-            $response = $this->getHttpClient()->head($this->directories[self::DIRECTORY_NEW_NONCE]);
+            $response = $this->getHttpClient()->head($this->getUrl(self::DIRECTORY_NEW_NONCE));
             $this->nonce = $response->getHeaderLine('replay-nonce');
         }
         return [
@@ -770,7 +770,7 @@ class Client
      */
     protected function getKID($url): array
     {
-        $response = $this->getHttpClient()->head($this->directories[self::DIRECTORY_NEW_NONCE]);
+        $response = $this->getHttpClient()->head($this->getUrl(self::DIRECTORY_NEW_NONCE));
         $nonce = $response->getHeaderLine('replay-nonce');
 
         return [
