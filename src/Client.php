@@ -71,11 +71,6 @@ class Client
     protected $account;
 
     /**
-     * @var array
-     */
-    protected $privateKeyDetails;
-
-    /**
      * @var \OpenSSLAsymmetricKey
      */
     protected $accountKey;
@@ -89,11 +84,6 @@ class Client
      * @var array{string?:string}
      */
     protected $directories = [];
-
-    /**
-     * @var array
-     */
-    protected $header = [];
 
     /**
      * @var string
@@ -553,13 +543,16 @@ class Client
             throw new \Exception('Private key was false somehow');
         }
 
+        /**
+         * v1 stored these against the client but they seemed unused,
+         * I think this is just for verification of the private key rather than
+         * actually used as part of the certificate process
+         */
         $privateKeyDetails = openssl_pkey_get_details($privateKey);
 
         if ($privateKeyDetails === false) {
             throw new \Exception('Private key details was false somehow');
         }
-
-        $this->privateKeyDetails = $privateKeyDetails;
     }
 
     /**
