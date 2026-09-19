@@ -473,7 +473,7 @@ class Client
             $data = json_decode((string)$response->getBody(), true);
             if (isset($data['Answer'])) {
                 foreach ($data['Answer'] as $result) {
-                    if (trim($result['data'], "\"") == $txtRecord->getValue()) {
+                    if (trim($result['data'], '"') == $txtRecord->getValue()) {
                         return true;
                     }
                 }
@@ -774,10 +774,10 @@ class Client
         $nonce = $response->getHeaderLine('replay-nonce');
 
         return [
-            "alg"   => "RS256",
-            "kid"   => $this->account->getAccountURL(),
-            "nonce" => $nonce,
-            "url"   => $url
+            'alg'   => 'RS256',
+            'kid'   => $this->account->getAccountURL(),
+            'nonce' => $nonce,
+            'url'   => $url
         ];
     }
 
@@ -813,7 +813,7 @@ class Client
 
         $protected = Helper::toSafeString($jwk);
 
-        $result = openssl_sign($protected . '.' . $payload, $signature, $this->getAccountKey(), "SHA256");
+        $result = openssl_sign($protected . '.' . $payload, $signature, $this->getAccountKey(), 'SHA256');
 
         if ($result === false) {
             throw new \Exception('Could not sign');
@@ -858,7 +858,7 @@ class Client
 
         $protected = Helper::toSafeString($kid);
 
-        $result = openssl_sign($protected . '.' . $payload, $signature, $this->getAccountKey(), "SHA256");
+        $result = openssl_sign($protected . '.' . $payload, $signature, $this->getAccountKey(), 'SHA256');
         if ($result === false) {
             throw new \Exception('Could not sign');
         }
