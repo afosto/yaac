@@ -2,23 +2,16 @@
 
 namespace Afosto\Acme;
 
-use GuzzleHttp\Exception\ClientException;
-
-/**
- * Class Helper
- * This class contains helper methods for certificate handling
- * @package Afosto\Acme
- */
 class Helper
 {
-    /**
-     * Formatter
-     * @param string $pem
-     * @return string
-     * @see https://eidson.info/post/php_eol_is_broken
-     */
-    public static function toDer($pem)
+    public static function toDer(string $pem): string
     {
+        /**
+         * Basically you can't guarantee which OS the key was generated on
+         * so the newline characters might not match PHP_EOL
+         *
+         * @see https://eidson.info/post/php_eol_is_broken
+         */
         $lines = preg_split('/\n|\r\n?/', $pem);
 
         if ($lines === false) {
@@ -32,13 +25,8 @@ class Helper
 
     /**
      * Return certificate expiry date
-     *
-     * @param string $certificate
-     *
-     * @return \DateTime
-     * @throws \Exception
      */
-    public static function getCertExpiryDate($certificate): \DateTime
+    public static function getCertExpiryDate(string $certificate): \DateTime
     {
         $info = openssl_x509_parse($certificate);
         if ($info === false) {
@@ -52,8 +40,6 @@ class Helper
 
     /**
      * Get a new key
-     *
-     * @return string
      */
     public static function getNewKey(int $keyLength): string
     {
@@ -76,11 +62,8 @@ class Helper
      *
      * @param array<string> $domains
      * @param \OpenSSLAsymmetricKey|string $key
-     *
-     * @return string
-     * @throws \Exception
      */
-    public static function getCsr(array $domains, $key): string
+    public static function getCsr(array $domains, \OpenSSLAsymmetricKey|string $key): string
     {
         $primaryDomain = current(($domains));
         $config = [
@@ -126,12 +109,8 @@ class Helper
 
     /**
      * Make a safe base64 string
-     *
-     * @param string $data
-     *
-     * @return string
      */
-    public static function toSafeString($data): string
+    public static function toSafeString(string $data): string
     {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
@@ -139,12 +118,9 @@ class Helper
     /**
      * Get the key information
      *
-     * @param \OpenSSLAsymmetricKey $key
-     *
      * @return array<string,mixed>
-     * @throws \Exception
      */
-    public static function getKeyDetails($key): array
+    public static function getKeyDetails(\OpenSSLAsymmetricKey $key): array
     {
         $accountDetails = openssl_pkey_get_details($key);
         if ($accountDetails === false) {
@@ -156,9 +132,8 @@ class Helper
 
     /**
      * Split a two certificate bundle into separate multi line string certificates
-     * @param string $chain
-     * @return array<string>
-     * @throws \Exception
+     *
+     * @return string[]
      */
     public static function splitCertificate(string $chain): array
     {

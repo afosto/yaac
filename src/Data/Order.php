@@ -4,48 +4,9 @@ namespace Afosto\Acme\Data;
 
 class Order
 {
-    /**
-     * @var string
-     */
-    protected $url;
+    protected \DateTime $expiresAt;
 
     /**
-     * @var string
-     */
-    protected $status;
-
-    /**
-     * @var \DateTime
-     */
-    protected $expiresAt;
-
-    /**
-     * @var array<array{type:string,value:string}>
-     */
-    protected $identifiers;
-
-    /**
-     * @var array<string>
-     */
-    protected $authorizations;
-
-    /**
-     * @var string
-     */
-    protected $finalizeURL;
-
-    /**
-     * @var array<string>
-     */
-    protected $domains;
-
-    /**
-     * @var string|null
-     */
-    protected $certificateURL;
-
-    /**
-     * Order constructor.
      * @param array<string> $domains
      * @param string $url
      * @param string $status
@@ -53,26 +14,22 @@ class Order
      * @param array<array{type:string,value:string}> $identifiers
      * @param array<string> $authorizations
      * @param string $finalizeURL
-     * @param string|null $certificateURL
-     * @throws \Exception
+     * @param ?string $certificateURL
      */
     public function __construct(
-        array $domains,
-        string $url,
-        string $status,
+        protected array $domains,
+        protected string $url,
+        protected string $status,
         string $expiresAt,
-        array $identifiers,
-        array $authorizations,
-        string $finalizeURL,
-        $certificateURL
+        protected array $identifiers,
+        protected array $authorizations,
+        protected string $finalizeURL,
+        protected ?string $certificateURL,
     ) {
         //Handle the microtime date format
         if (strpos($expiresAt, '.') !== false) {
             $expiresAt = substr($expiresAt, 0, strpos($expiresAt, '.')) . 'Z';
         }
-        $this->domains = $domains;
-        $this->url = $url;
-        $this->status = $status;
 
         $expiresAt = strtotime($expiresAt);
 
@@ -81,16 +38,11 @@ class Order
         }
 
         $this->expiresAt = (new \DateTime())->setTimestamp($expiresAt);
-        $this->identifiers = $identifiers;
-        $this->authorizations = $authorizations;
-        $this->finalizeURL = $finalizeURL;
-        $this->certificateURL = $certificateURL;
     }
 
 
     /**
      * Returns the order number
-     * @return string
      */
     public function getId(): string
     {
@@ -99,7 +51,6 @@ class Order
 
     /**
      * Returns the order URL
-     * @return string
      */
     public function getURL(): string
     {
@@ -108,7 +59,7 @@ class Order
 
     /**
      * Return set of authorizations for the order
-     * @return array<string>
+     * @return string[]
      */
     public function getAuthorizationURLs(): array
     {
@@ -117,7 +68,6 @@ class Order
 
     /**
      * Returns order status
-     * @return string
      */
     public function getStatus(): string
     {
@@ -126,7 +76,6 @@ class Order
 
     /**
      * Returns expires at
-     * @return \DateTime
      */
     public function getExpiresAt(): \DateTime
     {
@@ -134,7 +83,8 @@ class Order
     }
 
     /**
-     * Returs domains as identifiers
+     * Returns domains as identifiers
+     *
      * @return array<array{type:string,value:string}>
      */
     public function getIdentifiers(): array
@@ -143,8 +93,7 @@ class Order
     }
 
     /**
-     * Returns url
-     * @return string
+     * Returns finalize url
      */
     public function getFinalizeURL(): string
     {
@@ -153,17 +102,15 @@ class Order
 
     /**
      * Returns domains for the order
-     * @return array<string>
+     *
+     * @return string[]
      */
     public function getDomains(): array
     {
         return $this->domains;
     }
 
-    /**
-     * @return string|null
-     */
-    public function getCertificateURL()
+    public function getCertificateURL(): ?string
     {
         return $this->certificateURL;
     }

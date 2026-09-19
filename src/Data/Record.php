@@ -4,30 +4,14 @@ namespace Afosto\Acme\Data;
 
 class Record
 {
-    /**
-     * @var string
-     */
-    protected $name;
-
-    /**
-     * @var string
-     */
-    protected $value;
-
-    /**
-     * Record constructor.
-     * @param string $name
-     * @param string $value
-     */
-    public function __construct(string $name, string $value)
-    {
-        $this->name = $name;
-        $this->value = $value;
+    public function __construct(
+        protected string $name,
+        protected string $value,
+    ) {
     }
 
     /**
      * Return the DNS TXT record name for validation
-     * @return string
      */
     public function getName(): string
     {
@@ -36,7 +20,6 @@ class Record
 
     /**
      * Return the record value for DNS validation
-     * @return string
      */
     public function getValue(): string
     {

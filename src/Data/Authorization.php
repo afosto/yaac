@@ -7,37 +7,18 @@ use Afosto\Acme\Helper;
 
 class Authorization
 {
-    /**
-     * @var string
-     */
-    protected $domain;
-
-    /**
-     * @var \DateTime
-     */
-    protected $expires;
+    protected \DateTime $expires;
 
     /**
      * @var Challenge[]
      */
-    protected $challenges = [];
+    protected array $challenges = [];
 
-    /**
-     * @var string
-     */
-    protected $digest;
-
-    /**
-     * Authorization constructor.
-     * @param string $domain
-     * @param string $expires
-     * @param string $digest
-     * @throws \Exception
-     */
-    public function __construct(string $domain, string $expires, string $digest)
-    {
-        $this->domain = $domain;
-
+    public function __construct(
+        protected string $domain,
+        string $expires,
+        protected string $digest,
+    ) {
         $expires = strtotime($expires);
 
         if ($expires === false) {
@@ -45,12 +26,10 @@ class Authorization
         }
 
         $this->expires = (new \DateTime())->setTimestamp($expires);
-        $this->digest = $digest;
     }
 
     /**
      * Add a challenge to the authorization
-     * @param Challenge $challenge
      */
     public function addChallenge(Challenge $challenge): void
     {
@@ -59,7 +38,6 @@ class Authorization
 
     /**
      * Return the domain that is being authorized
-     * @return string
      */
     public function getDomain(): string
     {
@@ -69,7 +47,6 @@ class Authorization
 
     /**
      * Return the expiry of the authorization
-     * @return \DateTime
      */
     public function getExpires(): \DateTime
     {
@@ -87,9 +64,8 @@ class Authorization
 
     /**
      * Return the HTTP challenge
-     * @return Challenge|false
      */
-    public function getHttpChallenge()
+    public function getHttpChallenge(): Challenge|false
     {
         foreach ($this->getChallenges() as $challenge) {
             if ($challenge->getType() == Client::VALIDATION_HTTP) {
@@ -101,9 +77,9 @@ class Authorization
     }
 
     /**
-     * @return Challenge|false
+     * Return the DNS challenge
      */
-    public function getDnsChallenge()
+    public function getDnsChallenge(): Challenge|false
     {
         foreach ($this->getChallenges() as $challenge) {
             if ($challenge->getType() == Client::VALIDATION_DNS) {
@@ -115,24 +91,22 @@ class Authorization
     }
 
     /**
-     * Return File object for the given challenge
-     * @return File|false
+     * Return File object for the HTTP challenge
      */
-    public function getFile()
+    public function getFile(): File|false
     {
         $challenge = $this->getHttpChallenge();
         if ($challenge !== false) {
             return new File($challenge->getToken(), $challenge->getToken() . '.' . $this->digest);
         }
+
         return false;
     }
 
     /**
      * Returns the DNS record object
-     *
-     * @return Record|false
      */
-    public function getTxtRecord()
+    public function getTxtRecord(): Record|false
     {
         $challenge = $this->getDnsChallenge();
         if ($challenge !== false) {

@@ -4,41 +4,15 @@ namespace Afosto\Acme\Data;
 
 class Account
 {
-    /**
-     * @var \DateTime
-     */
-    protected $createdAt;
-
-    /**
-     * @var bool
-     */
-    protected $isValid;
-
-    /**
-     * @var string
-     */
-    protected $accountURL;
-
-
-    /**
-     * Account constructor.
-     * @param \DateTime $createdAt
-     * @param bool $isValid
-     * @param string $accountURL
-     */
     public function __construct(
-        \DateTime $createdAt,
-        bool $isValid,
-        string $accountURL
+        protected \DateTime $createdAt,
+        protected bool $isValid,
+        protected string $accountURL
     ) {
-        $this->createdAt = $createdAt;
-        $this->isValid = $isValid;
-        $this->accountURL = $accountURL;
     }
 
     /**
      * Return the account ID
-     * @return string
      */
     public function getId(): string
     {
@@ -47,7 +21,6 @@ class Account
 
     /**
      * Return create date for the account
-     * @return \DateTime
      */
     public function getCreatedAt(): \DateTime
     {
@@ -56,7 +29,6 @@ class Account
 
     /**
      * Return the URL for the account
-     * @return string
      */
     public function getAccountURL(): string
     {
@@ -65,7 +37,6 @@ class Account
 
     /**
      * Returns validation status
-     * @return bool
      */
     public function isValid(): bool
     {

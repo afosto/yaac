@@ -4,51 +4,17 @@ namespace Afosto\Acme\Data;
 
 class Challenge
 {
-    /**
-     * @var string
-     */
-    protected $authorizationURL;
-
-    /**
-     * @var string
-     */
-    protected $type;
-
-    /**
-     * @var string
-     */
-    protected $status;
-
-    /**
-     * @var string
-     */
-    protected $url;
-
-    /**
-     * @var string
-     */
-    protected $token;
-
-    /**
-     * Challenge constructor.
-     * @param string $authorizationURL
-     * @param string $type
-     * @param string $status
-     * @param string $url
-     * @param string $token
-     */
-    public function __construct(string $authorizationURL, string $type, string $status, string $url, string $token)
-    {
-        $this->authorizationURL = $authorizationURL;
-        $this->type = $type;
-        $this->status = $status;
-        $this->url = $url;
-        $this->token = $token;
+    public function __construct(
+        protected string $authorizationURL,
+        protected string $type,
+        protected string $status,
+        protected string $url,
+        protected string $token,
+    ) {
     }
 
     /**
      * Get the URL for the challenge
-     * @return string
      */
     public function getUrl(): string
     {
@@ -57,7 +23,6 @@ class Challenge
 
     /**
      * Returns challenge type (DNS or HTTP)
-     * @return string
      */
     public function getType(): string
     {
@@ -66,7 +31,6 @@ class Challenge
 
     /**
      * Returns the token
-     * @return string
      */
     public function getToken(): string
     {
@@ -75,7 +39,6 @@ class Challenge
 
     /**
      * Returns the status
-     * @return string
      */
     public function getStatus(): string
     {
@@ -84,7 +47,6 @@ class Challenge
 
     /**
      * Returns authorization URL
-     * @return string
      */
     public function getAuthorizationURL(): string
     {

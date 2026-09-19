@@ -60,40 +60,22 @@ class Client
      */
     public const VALIDATION_DNS = 'dns-01';
 
-    /**
-     * @var string
-     */
-    protected $nonce;
+    protected ?string $nonce = null;
 
-    /**
-     * @var Account
-     */
-    protected $account;
+    protected Account $account;
 
-    /**
-     * @var \OpenSSLAsymmetricKey
-     */
-    protected $accountKey;
+    protected ?\OpenSSLAsymmetricKey $accountKey = null;
 
-    /**
-     * @var Filesystem
-     */
-    protected $filesystem;
+    protected Filesystem $filesystem;
 
     /**
      * @var array{string?:string}
      */
-    protected $directories = [];
+    protected array $directories = [];
 
-    /**
-     * @var string
-     */
-    protected $digest;
+    protected ?string $digest = null;
 
-    /**
-     * @var HttpClient
-     */
-    protected $httpClient;
+    protected ?HttpClient $httpClient = null;
 
     /**
      * @param array{fs:Filesystem,mode:string,username:string,basePath?:string,source_ip?:string} $config
@@ -125,12 +107,8 @@ class Client
 
     /**
      * Get an existing order by ID
-     *
-     * @param string|int $id
-     * @return Order
-     * @throws \Exception
      */
-    public function getOrder($id): Order
+    public function getOrder(string|int $id): Order
     {
         $url = str_replace('new-order', 'order', $this->getUrl(self::DIRECTORY_NEW_ORDER));
         $url = $url . '/' . $this->getAccount()->getId() . '/' . $id;
@@ -146,10 +124,6 @@ class Client
 
     /**
      * Get ready status for order
-     *
-     * @param Order $order
-     * @return bool
-     * @throws \Exception
      */
     public function isReady(Order $order): bool
     {
@@ -162,8 +136,6 @@ class Client
      * Create a new order
      *
      * @param array<string> $domains
-     * @return Order
-     * @throws \Exception
      */
     public function createOrder(array $domains): Order
     {
@@ -192,9 +164,7 @@ class Client
     /**
      * Obtain authorizations
      *
-     * @param Order $order
      * @return Authorization[]
-     * @throws \Exception
      */
     public function authorize(Order $order): array
     {
@@ -225,28 +195,25 @@ class Client
 
     /**
      * Run a self-test for the authorization
-     * @param Authorization $authorization
-     * @param string $type
-     * @param int $maxAttempts
-     * @return bool
      */
-    public function selfTest(Authorization $authorization, $type = self::VALIDATION_HTTP, $maxAttempts = 15): bool
-    {
+    public function selfTest(
+        Authorization $authorization,
+        string $type = self::VALIDATION_HTTP,
+        int $maxAttempts = 15
+    ): bool {
         if ($type == self::VALIDATION_HTTP) {
             return $this->selfHttpTest($authorization, $maxAttempts);
-        } elseif ($type == self::VALIDATION_DNS) {
+        }
+
+        if ($type == self::VALIDATION_DNS) {
             return $this->selfDNSTest($authorization, $maxAttempts);
         }
+
         return false;
     }
 
     /**
      * Validate a challenge
-     *
-     * @param Challenge $challenge
-     * @param int $maxAttempts
-     * @return bool
-     * @throws \Exception
      */
     public function validate(Challenge $challenge, int $maxAttempts = 15): bool
     {
@@ -275,10 +242,6 @@ class Client
 
     /**
      * Return a certificate
-     *
-     * @param Order $order
-     * @return Certificate
-     * @throws \Exception
      */
     public function getCertificate(Order $order): Certificate
     {
@@ -356,9 +319,6 @@ class Client
 
     /**
      * Return LE account information
-     *
-     * @return Account
-     * @throws \Exception
      */
     public function getAccount(): Account
     {
@@ -380,9 +340,8 @@ class Client
 
     /**
      * Returns the ACME api configured Guzzle Client
-     * @return HttpClient
      */
-    protected function getHttpClient()
+    protected function getHttpClient(): HttpClient
     {
         if ($this->httpClient === null) {
             $config = [
@@ -395,14 +354,14 @@ class Client
             }
             $this->httpClient = new HttpClient($config);
         }
+
         return $this->httpClient;
     }
 
     /**
      * Returns a Guzzle Client configured for self test
-     * @return HttpClient
      */
-    protected function getSelfTestClient()
+    protected function getSelfTestClient(): HttpClient
     {
         return new HttpClient([
             'verify'          => false,
@@ -414,11 +373,8 @@ class Client
 
     /**
      * Self HTTP test
-     * @param Authorization $authorization
-     * @param int $maxAttempts
-     * @return bool
      */
-    protected function selfHttpTest(Authorization $authorization, $maxAttempts)
+    protected function selfHttpTest(Authorization $authorization, int $maxAttempts): bool
     {
         do {
             $maxAttempts--;
@@ -448,11 +404,8 @@ class Client
 
     /**
      * Self DNS test client that uses Cloudflare's DNS API
-     * @param Authorization $authorization
-     * @param int $maxAttempts
-     * @return bool
      */
-    protected function selfDNSTest(Authorization $authorization, $maxAttempts)
+    protected function selfDNSTest(Authorization $authorization, int $maxAttempts): bool
     {
         do {
             $txtRecord = $authorization->getTxtRecord();
@@ -489,9 +442,8 @@ class Client
 
     /**
      * Return the preconfigured client to call Cloudflare's DNS API
-     * @return HttpClient
      */
-    protected function getSelfTestDNSClient()
+    protected function getSelfTestDNSClient(): HttpClient
     {
         return new HttpClient([
             'base_uri'        => 'https://cloudflare-dns.com',
@@ -557,8 +509,6 @@ class Client
 
     /**
      * Agree to the terms of service
-     *
-     * @throws \Exception
      */
     protected function tosAgree(): void
     {
@@ -591,7 +541,6 @@ class Client
 
     /**
      * Return the Flysystem filesystem
-     * @return Filesystem
      */
     protected function getFilesystem(): Filesystem
     {
@@ -616,9 +565,6 @@ class Client
 
     /**
      * Get key fingerprint
-     *
-     * @return string
-     * @throws \Exception
      */
     protected function getDigest(): string
     {
@@ -641,9 +587,8 @@ class Client
      * @param string $url
      * @param array<mixed,mixed> $payload
      * @param string $method
-     * @return ResponseInterface
      */
-    protected function request($url, $payload = [], $method = 'POST'): ResponseInterface
+    protected function request(string $url, array $payload = [], string $method = 'POST'): ResponseInterface
     {
         try {
             $response = $this->getHttpClient()->request($method, $url, [
@@ -665,7 +610,7 @@ class Client
      * @param array<mixed,mixed> $payload
      * @param string $method
      */
-    protected function orderFromRequest($url, $payload = [], $method = 'POST'): Order
+    protected function orderFromRequest(string $url, array $payload = [], string $method = 'POST'): Order
     {
         $response = $this->request($url, $payload, $method);
 
@@ -690,8 +635,6 @@ class Client
 
     /**
      * Get the LE directory path
-     *
-     * @throws \Exception
      */
     protected function getUrl(string $directory): string
     {
@@ -705,11 +648,8 @@ class Client
 
     /**
      * Get the key
-     *
-     * @return \OpenSSLAsymmetricKey
-     * @throws \Exception
      */
-    protected function getAccountKey()
+    protected function getAccountKey(): \OpenSSLAsymmetricKey
     {
         if ($this->accountKey === null) {
             $accountKey = openssl_pkey_get_private($this->getFilesystem()
@@ -726,10 +666,9 @@ class Client
     }
 
     /**
-     * Get the header
+     * Get the JWK header
      *
      * @return array{e:string,kty:string,n:string}
-     * @throws \Exception
      */
     protected function getJWKHeader(): array
     {
@@ -743,17 +682,16 @@ class Client
     /**
      * Get JWK envelope
      *
-     * @param string $url
      * @return array{alg:'RS256',jwk:array{e:string,kty:string,n:string},nonce:string,url:string}
-     * @throws \Exception
      */
-    protected function getJWK($url): array
+    protected function getJWK(string $url): array
     {
         //Require a nonce to be available
         if ($this->nonce === null) {
             $response = $this->getHttpClient()->head($this->getUrl(self::DIRECTORY_NEW_NONCE));
             $this->nonce = $response->getHeaderLine('replay-nonce');
         }
+
         return [
             'alg'   => 'RS256',
             'jwk'   => $this->getJWKHeader(),
@@ -765,10 +703,9 @@ class Client
     /**
      * Get KID envelope
      *
-     * @param string $url
      * @return array{alg:string,kid:string,nonce:string,url:string}
      */
-    protected function getKID($url): array
+    protected function getKID(string $url): array
     {
         $response = $this->getHttpClient()->head($this->getUrl(self::DIRECTORY_NEW_NONCE));
         $nonce = $response->getHeaderLine('replay-nonce');
@@ -787,9 +724,8 @@ class Client
      * @param ?array<mixed,mixed> $payload
      * @param string $url
      * @return array{protected:string,payload:string,signature:string}
-     * @throws \Exception
      */
-    protected function signPayloadJWK($payload, $url): array
+    protected function signPayloadJWK(?array $payload, string $url): array
     {
         if (is_array($payload)) {
             $payload = json_encode($payload);
@@ -834,7 +770,7 @@ class Client
      * @return array{protected:string,payload:string,signature:string}
      * @throws \Exception
      */
-    protected function signPayloadKid($payload, $url): array
+    protected function signPayloadKid(?array $payload, string $url): array
     {
         if (is_array($payload)) {
             $payload = json_encode($payload);
