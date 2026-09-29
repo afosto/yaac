@@ -149,22 +149,13 @@ class Client
     {
         $url = str_replace('new-order', 'order', $this->getUrl(self::DIRECTORY_NEW_ORDER));
         $url = $url . '/' . $this->getAccount()->getId() . '/' . $id;
-        $response = $this->request($url, $this->signPayloadKid(null, $url));
-        $data = json_decode((string)$response->getBody(), true);
 
-        $domains = [];
-        foreach ($data['identifiers'] as $identifier) {
-            $domains[] = $identifier['value'];
-        }
-
-        return new Order(
-            $domains,
+        return $this->orderFromRequest(
             $url,
-            $data['status'],
-            $data['expires'],
-            $data['identifiers'],
-            $data['authorizations'],
-            $data['finalize']
+            $this->signPayloadKid(
+                null,
+                $url
+            )
         );
     }
 
@@ -201,26 +192,16 @@ class Client
         }
 
         $url = $this->getUrl(self::DIRECTORY_NEW_ORDER);
-        $response = $this->request($url, $this->signPayloadKid(
-            [
-                'identifiers' => $identifiers,
-            ],
-            $url
-        ));
 
-        $data = json_decode((string)$response->getBody(), true);
-        $order = new Order(
-            $domains,
-            $response->getHeaderLine('location'),
-            $data['status'],
-            $data['expires'],
-            $data['identifiers'],
-            $data['authorizations'],
-            $data['finalize']
+        return $this->orderFromRequest(
+            $url,
+            $this->signPayloadKid(
+                [
+                    'identifiers' => $identifiers,
+                ],
+                $url
+            )
         );
-
-
-        return $order;
     }
 
     /**
@@ -317,6 +298,8 @@ class Client
         $csr = Helper::getCsr($order->getDomains(), $privateKey);
         $der = Helper::toDer($csr);
 
+        // technically, this could be orderFromRequest but
+        // then you wouldn't get Retry-After
         $response = $this->request(
             $order->getFinalizeURL(),
             $this->signPayloadKid(
@@ -326,9 +309,51 @@ class Client
         );
 
         $data = json_decode((string)$response->getBody(), true);
+
+        $certificateURL = null;
+
+        // normally we'd specify an argument for this but because of the Retry After,
+        // its unlikely to need more than one attempt
+        $maxAttempts = 15;
+
+        if (isset($data['certificate'])) {
+            /**
+             * order is now finalized, certificate was available immediately
+             */
+            $certificateURL = $data['certificate'];
+        } elseif ($data['status'] == 'processing') {
+            /**
+             * order is now finalized, certificate was not created immediately
+             * probably because using staging
+             *
+             * must now wait to get order again until certificate can be retrieved
+             */
+
+            $retryAfter = $response->getHeaderLine('Retry-After');
+            sleep(is_numeric($retryAfter) ? (int) $retryAfter : 1);
+
+            do {
+                $order = $this->getOrder($order->getId());
+
+                if ($order->getStatus() == 'valid') {
+                    $certificateURL = $order->getCertificateURL();
+                    break;
+                }
+
+                $maxAttempts--;
+                sleep(1);
+            } while ($maxAttempts > 0);
+        }
+
+        if ($certificateURL === null) {
+            throw new \RuntimeException(
+                'Certificate download link could not be retrieved. Order was never valid in time.'
+            );
+        }
+
         $certificateResponse = $this->request(
-            $data['certificate'],
-            $this->signPayloadKid(null, $data['certificate'])
+            $certificateURL,
+            $this->signPayloadKid(null, $certificateURL)
         );
         $chain = $str = preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
         return new Certificate($privateKey, $csr, $chain);
@@ -356,7 +381,7 @@ class Client
         $data = json_decode((string)$response->getBody(), true);
         $accountURL = $response->getHeaderLine('Location');
         $date = (new \DateTime())->setTimestamp(strtotime($data['createdAt']));
-        return new Account($data['contact'], $date, ($data['status'] == 'valid'), $data['initialIp'], $accountURL);
+        return new Account($date, ($data['status'] == 'valid'), $accountURL);
     }
 
     /**
@@ -601,6 +626,34 @@ class Client
         }
 
         return $response;
+    }
+
+    /**
+     * @param $url
+     * @param array $payload
+     * @param string $method
+     */
+    protected function orderFromRequest($url, $payload = [], $method = 'POST'): Order
+    {
+        $response = $this->request($url, $payload, $method);
+
+        $data = json_decode((string) $response->getBody(), true);
+
+        $domains = [];
+        foreach ($data['identifiers'] as $identifier) {
+            $domains[] = $identifier['value'];
+        }
+
+        return new Order(
+            $domains,
+            $response->getHeaderLine('location'),
+            $data['status'],
+            $data['expires'],
+            $data['identifiers'],
+            $data['authorizations'],
+            $data['finalize'],
+            $data['certificate'] ?? null
+        );
     }
 
     /**

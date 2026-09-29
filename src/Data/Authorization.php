@@ -124,7 +124,6 @@ class Authorization
     /**
      * Returns the DNS record object
      *
-     * @param Challenge $challenge
      * @return Record|bool
      */
     public function getTxtRecord()

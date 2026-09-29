@@ -3,3 +3,4 @@ index.php
 .idea
 vendor
 .store
+composer.lock

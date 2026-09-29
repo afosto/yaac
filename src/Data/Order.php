@@ -42,6 +42,11 @@ class Order
     protected $domains;
 
     /**
+     * @var string|null
+     */
+    protected $certificateURL;
+
+    /**
      * Order constructor.
      * @param array $domains
      * @param string $url
@@ -50,6 +55,7 @@ class Order
      * @param array $identifiers
      * @param array $authorizations
      * @param string $finalizeURL
+     * @param string|null $certificateURL
      * @throws \Exception
      */
     public function __construct(
@@ -59,7 +65,8 @@ class Order
         string $expiresAt,
         array $identifiers,
         array $authorizations,
-        string $finalizeURL
+        string $finalizeURL,
+        $certificateURL
     ) {
         //Handle the microtime date format
         if (strpos($expiresAt, '.') !== false) {
@@ -72,6 +79,7 @@ class Order
         $this->identifiers = $identifiers;
         $this->authorizations = $authorizations;
         $this->finalizeURL = $finalizeURL;
+        $this->certificateURL = $certificateURL;
     }
 
 
@@ -145,5 +153,13 @@ class Order
     public function getDomains(): array
     {
         return $this->domains;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getCertificateURL()
+    {
+        return $this->certificateURL;
     }
 }
