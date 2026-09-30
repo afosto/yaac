@@ -3,14 +3,14 @@
 namespace Afosto\Acme\Data;
 
 use Afosto\Acme\Helper;
+use Psr\Http\Message\ResponseInterface;
 
 class Certificate
 {
-
     /**
      * @var string
      */
-    protected $privateKey;
+    protected $privateKey = '';
 
     /**
      * @var string
@@ -30,7 +30,7 @@ class Certificate
     /**
      * @var string
      */
-    protected $csr;
+    protected $csr = '';
 
     /**
      * @var \DateTime
@@ -44,10 +44,11 @@ class Certificate
      * @param $chain
      * @throws \Exception
      */
-    public function __construct($privateKey, $csr, $chain)
+    public function __construct(ResponseInterface $response)
     {
-        $this->privateKey = $privateKey;
-        $this->csr = $csr;
+        $body = (string)$response->getBody();
+        $chain = $str = preg_replace('/^[ \t]*[\r\n]+/m', '', $body);
+        
         $this->chain = $chain;
         list($this->certificate, $this->intermediateCertificate) = Helper::splitCertificate($chain);
         $this->expiryDate = Helper::getCertExpiryDate($chain);
@@ -98,5 +99,17 @@ class Certificate
     public function getPrivateKey(): string
     {
         return $this->privateKey;
+    }
+
+    public function setPrivateKey(string $privateKey): self
+    {
+        $this->privateKey = $privateKey;
+        return $this;
+    }
+
+    public function setCsr(string $csr): self
+    {
+        $this->csr = $csr;
+        return $this;
     }
 }

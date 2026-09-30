@@ -6,6 +6,14 @@ use Afosto\Acme\Data\Challenge\Error as ChallengeError;
 
 class Challenge
 {
+    public const TYPE_DNS = 'dns-01';
+    public const TYPE_HTTP = 'http-01';
+    public const TYPE_TLS_ALPN = 'tls-alpn-01';
+    public const TYPE_DNS_PERSIST = 'dns-persist-01';
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_VALID = 'valid';
+    public const STATUS_INVALID = 'invalid';
 
     /**
      * @var string
@@ -30,7 +38,12 @@ class Challenge
     /**
      * @var string
      */
-    protected $token;
+    protected $token = '';
+
+    /**
+     * @var array<string>
+     */
+    protected $issuerDomainNames = [];
 
     /** 
      * @var null|ChallengeError
@@ -57,17 +70,34 @@ class Challenge
     {
         $this->authorizationURL = $authorizationURL;
 
+        switch($data['type'] ?? ''){
+            case self::TYPE_DNS:
+            case self::TYPE_HTTP:
+            case self::TYPE_TLS_ALPN:
+                $mandatoryData = [
+                    'type' => 'type',
+                    'status' => 'status',
+                    'url' => 'url',
+                    'token' => 'token'
+                ];
+                break;
+            case self::TYPE_DNS_PERSIST:
+                $mandatoryData = [
+                    'type' => 'type',
+                    'status' => 'status',
+                    'url' => 'url',
+                    'issuer-domain-names' => 'issuerDomainNames'
+                ];
+                break;
+            default:
+                throw new \InvalidArgumentException('Unsupported challenge type: ' . ($data['type'] ?? ''));
+        }
         // mandatory data
-        foreach([
-            'type',
-            'status',
-            'url',
-            'token'
-        ] as $attribute){
+        foreach($mandatoryData as $attribute => $property){
             if(!isset($data[$attribute])){
                 throw new \InvalidArgumentException('When constructing challenge object the $data array passed in must contain "'.$attribute.'". $data provided: '.json_encode($data));
             }
-            $this->$attribute = $data[$attribute];         
+            $this->$property = $data[$attribute];         
         }
 
         // optional data
@@ -116,6 +146,34 @@ class Challenge
     public function getStatus(): string
     {
         return $this->status;
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isProcessing(): bool
+    {
+        return $this->status === self::STATUS_PROCESSING;
+    }
+
+    public function isValid(): bool
+    {
+        return $this->status === self::STATUS_VALID;
+    }
+
+    public function isInvalid(): bool
+    {
+        return $this->status === self::STATUS_INVALID;
+    }
+
+    /**
+     * @return array<string>
+     */
+    public function getIssuerDomainNames(): array
+    {
+        return $this->issuerDomainNames;
     }
 
     /**

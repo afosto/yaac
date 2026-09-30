@@ -51,16 +51,6 @@ class Client
     const DIRECTORY_NEW_ORDER = 'newOrder';
 
     /**
-     * Http validation
-     */
-    const VALIDATION_HTTP = 'http-01';
-
-    /**
-     * DNS validation
-     */
-    const VALIDATION_DNS = 'dns-01';
-
-    /**
      * @var string
      */
     protected $nonce;
@@ -215,23 +205,15 @@ class Client
     {
         $authorizations = [];
         foreach ($order->getAuthorizationURLs() as $authorizationURL) {
-            $response = $this->request(
-                $authorizationURL,
-                $this->signPayloadKid(null, $authorizationURL)
-            );
-            $data = json_decode((string)$response->getBody(), true);
-            $authorization = new Authorization($data['identifier']['value'], $data['expires'], $this->getDigest());
-
-            foreach ($data['challenges'] as $challengeData) {
-                $challenge = new Challenge(
+            $authorizations[] = new Authorization(
+                $this->request(
                     $authorizationURL,
-                    $challengeData
-                );
-                $authorization->addChallenge($challenge);
-            }
-            $authorizations[] = $authorization;
+                    $this->signPayloadKid(null, $authorizationURL)
+                ),
+                $this->getDigest(),
+                $authorizationURL
+            );
         }
-
         return $authorizations;
     }
 
@@ -242,14 +224,23 @@ class Client
      * @param int $maxAttempts
      * @return bool
      */
-    public function selfTest(Authorization $authorization, $type = self::VALIDATION_HTTP, $maxAttempts = 15): bool
-    {
-        if ($type == self::VALIDATION_HTTP) {
+    public function selfTest(
+        Authorization $authorization, 
+        $type = Challenge::TYPE_HTTP, 
+        $maxAttempts = 15,
+        ?Account $account = null
+    ): bool {
+        if ($type == Challenge::TYPE_HTTP) {
             return $this->selfHttpTest($authorization, $maxAttempts);
-        } elseif ($type == self::VALIDATION_DNS) {
+        } elseif ($type == Challenge::TYPE_DNS) {
             return $this->selfDNSTest($authorization, $maxAttempts);
+        } elseif ($type == Challenge::TYPE_DNS_PERSIST) {
+            if(!$account) {
+                throw new \Exception('Account is required for DNS Persist self-test.');
+            }
+            return $this->selfDnsPersistTest($authorization, $maxAttempts, $account);
         }
-        return false;
+        throw new \Exception('Unknown challenge type: ' . $type);
     }
 
     /**
@@ -285,6 +276,30 @@ class Client
         return (isset($data['status']) && $data['status'] == 'valid');
     }
 
+    public function getPrivateKey(): string
+    {
+        return Helper::getNewKey($this->getOption('key_length', 4096));
+    }
+
+    public function getCsr(Order $order, $privateKey): string
+    {
+        return  Helper::getCsr($order->getDomains(), $privateKey, $this->getOption('country_name', 'NL'));
+    }
+
+    public function finalize(Order $order, $csr): Order
+    {
+        $der = Helper::toDer($csr);
+        return new Order(
+            $this->request(
+                $order->getFinalizeURL(),
+                $this->signPayloadKid(
+                    ['csr' => Helper::toSafeString($der)],
+                    $order->getFinalizeURL()
+                )
+            )
+        );
+    }
+
     /**
      * Return a certificate
      *
@@ -294,66 +309,11 @@ class Client
      */
     public function getCertificate(Order $order): Certificate
     {
-        $privateKey = Helper::getNewKey($this->getOption('key_length', 4096));
-        $csr = Helper::getCsr($order->getDomains(), $privateKey);
-        $der = Helper::toDer($csr);
-
-        // technically, this could be orderFromRequest but
-        // then you wouldn't get Retry-After
-        $response = $this->request(
-            $order->getFinalizeURL(),
-            $this->signPayloadKid(
-                ['csr' => Helper::toSafeString($der)],
-                $order->getFinalizeURL()
+        return new Certificate(
+            $this->request(
+                $order->getCertificateURL(),
+                $this->signPayloadKid(null, $order->getCertificateURL())
             )
-        );
-
-        $data = json_decode((string)$response->getBody(), true);
-
-        $certificateURL = null;
-
-        // normally we'd specify an argument for this but because of the Retry After,
-        // its unlikely to need more than one attempt
-        $maxAttempts = 15;
-
-        if (isset($data['certificate'])) {
-            /**
-             * order is now finalized, certificate was available immediately
-             */
-            $certificateURL = $data['certificate'];
-        } elseif ($data['status'] == 'processing') {
-            /**
-             * order is now finalized, certificate was not created immediately
-             * probably because using staging
-             *
-             * must now wait to get order again until certificate can be retrieved
-             */
-
-            $retryAfter = $response->getHeaderLine('Retry-After');
-            sleep(is_numeric($retryAfter) ? (int) $retryAfter : 1);
-
-            do {
-                $order = $this->getOrder($order->getId());
-
-                if ($order->getStatus() == 'valid') {
-                    $certificateURL = $order->getCertificateURL();
-                    break;
-                }
-
-                $maxAttempts--;
-                sleep(1);
-            } while ($maxAttempts > 0);
-        }
-
-        if ($certificateURL === null) {
-            throw new \RuntimeException(
-                'Certificate download link could not be retrieved. Order was never valid in time.'
-            );
-        }
-
-        $certificateResponse = $this->request(
-            $certificateURL,
-            $this->signPayloadKid(null, $certificateURL)
         );
         $chain = $str = preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
         return new Certificate($privateKey, $csr, $chain);
@@ -368,20 +328,19 @@ class Client
      */
     public function getAccount(): Account
     {
-        $response = $this->request(
-            $this->getUrl(self::DIRECTORY_NEW_ACCOUNT),
-            $this->signPayloadJWK(
-                [
-                    'onlyReturnExisting' => true,
-                ],
-                $this->getUrl(self::DIRECTORY_NEW_ACCOUNT)
-            )
-        );
-
-        $data = json_decode((string)$response->getBody(), true);
-        $accountURL = $response->getHeaderLine('Location');
-        $date = (new \DateTime())->setTimestamp(strtotime($data['createdAt']));
-        return new Account($date, ($data['status'] == 'valid'), $accountURL);
+        if(!$this->account){
+            $response = $this->request(
+                $this->getUrl(self::DIRECTORY_NEW_ACCOUNT),
+                $this->signPayloadJWK(
+                    [
+                        'onlyReturnExisting' => true,
+                    ],
+                    $this->getUrl(self::DIRECTORY_NEW_ACCOUNT)
+                )
+            );
+            $this->account = new Account($response);
+        }
+        return $this->account;
     }
 
     /**
@@ -467,6 +426,43 @@ class Client
             if (isset($data['Answer'])) {
                 foreach ($data['Answer'] as $result) {
                     if (trim($result['data'], "\"") == $authorization->getTxtRecord()->getValue()) {
+                        return true;
+                    }
+                }
+            }
+            if ($maxAttempts > 1) {
+                sleep(ceil(45 / $maxAttempts));
+            }
+            $maxAttempts--;
+        } while ($maxAttempts > 0);
+
+        return false;
+    }
+
+    /**
+     * Self DNS test client that uses Cloudflare's DNS API
+     * @param Authorization $authorization
+     * @param $maxAttempts
+     * @return bool
+     */
+    protected function selfDnsPersistTest(Authorization $authorization, $maxAttempts, Account $account)
+    {
+        do {
+            $dnsRecord = $authorization->getDnsPersistRecord($account); 
+            $response = $this->getSelfTestDNSClient()->get(
+                '/dns-query',
+                [
+                    'query' => [
+                        'name' => $dnsRecord->getName(),
+                        'type' => 'TXT'
+                    ]
+                ]
+            );
+            $data = json_decode((string)$response->getBody(), true);
+
+            if (isset($data['Answer'])) {
+                foreach ($data['Answer'] as $result) {
+                    if (strpos(trim($result['data'], "\""), $dnsRecord->getValue()) == 0) {
                         return true;
                     }
                 }
@@ -611,7 +607,7 @@ class Client
      * @param string $method
      * @return ResponseInterface
      */
-    protected function request($url, $payload = [], $method = 'POST'): ResponseInterface
+    public function request($url, $payload = [], $method = 'POST'): ResponseInterface
     {
         try {
             $response = $this->getHttpClient()->request($method, $url, [
@@ -635,24 +631,8 @@ class Client
      */
     protected function orderFromRequest($url, $payload = [], $method = 'POST'): Order
     {
-        $response = $this->request($url, $payload, $method);
-
-        $data = json_decode((string) $response->getBody(), true);
-
-        $domains = [];
-        foreach ($data['identifiers'] as $identifier) {
-            $domains[] = $identifier['value'];
-        }
-
         return new Order(
-            $domains,
-            $response->getHeaderLine('location'),
-            $data['status'],
-            $data['expires'],
-            $data['identifiers'],
-            $data['authorizations'],
-            $data['finalize'],
-            $data['certificate'] ?? null
+            $this->request($url, $payload, $method)
         );
     }
 
@@ -759,7 +739,7 @@ class Client
      * @return array
      * @throws \Exception
      */
-    protected function signPayloadJWK($payload, $url): array
+    public function signPayloadJWK($payload, $url): array
     {
         $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
         $payload = Helper::toSafeString($payload);
@@ -786,7 +766,7 @@ class Client
      * @return array
      * @throws \Exception
      */
-    protected function signPayloadKid($payload, $url): array
+    public function signPayloadKid($payload, $url): array
     {
         $payload = is_array($payload) ? str_replace('\\/', '/', json_encode($payload)) : '';
         $payload = Helper::toSafeString($payload);

@@ -4,9 +4,17 @@ namespace Afosto\Acme\Data;
 
 use Afosto\Acme\Client;
 use Afosto\Acme\Helper;
+use Psr\Http\Message\ResponseInterface;
+use Afosto\Acme\Data\Challenge;
 
 class Authorization
 {
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_VALID = 'valid';
+    public const STATUS_INVALID = 'invalid';
+    public const STATUS_DEACTIVATED = 'deactivated';
+    public const STATUS_EXPIRED = 'expired';
+    public const STATUS_REVOKED = 'revoked';
 
     /**
      * @var string
@@ -17,6 +25,11 @@ class Authorization
      * @var \DateTime
      */
     protected $expires;
+
+    /**
+     * @var string
+     */
+    protected $status = '';
 
     /**
      * @var Challenge[]
@@ -35,11 +48,17 @@ class Authorization
      * @param string $digest
      * @throws \Exception
      */
-    public function __construct(string $domain, string $expires, string $digest)
+    public function __construct(ResponseInterface $response, $digest, $authorizationUrl)
     {
-        $this->domain = $domain;
-        $this->expires = (new \DateTime())->setTimestamp(strtotime($expires));
+        $data = json_decode((string)$response->getBody(), true);
+        $this->domain = $data['identifier']['value'] ?? '';
+        $this->expires = isset($data['expires']) ? (new \DateTime())->setTimestamp(strtotime($data['expires'])) : new \DateTime();
         $this->digest = $digest;
+        $this->status = $data['status'] ?? '';
+        $this->challenges = [];
+        foreach($data['challenges'] ?? [] as $challengeData) {
+            $this->challenges[] = new Challenge($authorizationUrl, $challengeData);
+        }
     }
 
     /**
@@ -70,6 +89,41 @@ class Authorization
         return $this->expires;
     }
 
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isValid(): bool
+    {
+        return $this->status === self::STATUS_VALID;
+    }
+
+    public function isInvalid(): bool
+    {
+        return $this->status === self::STATUS_INVALID;
+    }
+
+    public function isDeactivated(): bool
+    {
+        return $this->status === self::STATUS_DEACTIVATED;
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->status === self::STATUS_EXPIRED;
+    }
+
+    public function isRevoked(): bool
+    {
+        return $this->status === self::STATUS_REVOKED;
+    }
+
     /**
      * Return array of challenges
      * @return Challenge[]
@@ -79,14 +133,10 @@ class Authorization
         return $this->challenges;
     }
 
-    /**
-     * Return the HTTP challenge
-     * @return Challenge|bool
-     */
-    public function getHttpChallenge()
+    public function getChallenge(string $type)
     {
         foreach ($this->getChallenges() as $challenge) {
-            if ($challenge->getType() == Client::VALIDATION_HTTP) {
+            if ($challenge->getType() == $type) {
                 return $challenge;
             }
         }
@@ -95,17 +145,28 @@ class Authorization
     }
 
     /**
+     * Return the HTTP challenge
+     * @return Challenge|bool
+     */
+    public function getHttpChallenge()
+    {
+        return $this->getChallenge(Challenge::VALIDATION_HTTP);
+    }
+
+    /**
      * @return Challenge|bool
      */
     public function getDnsChallenge()
     {
-        foreach ($this->getChallenges() as $challenge) {
-            if ($challenge->getType() == Client::VALIDATION_DNS) {
-                return $challenge;
-            }
-        }
+        return $this->getChallenge(Challenge::VALIDATION_DNS);
+    }
 
-        return false;
+    /**
+     * @return Challenge|bool
+     */
+    public function getDnsPersistChallenge()
+    {
+        return $this->getChallenge(Challenge::TYPE_DNS_PERSIST);
     }
 
     /**
@@ -133,6 +194,31 @@ class Authorization
             $hash = hash('sha256', $challenge->getToken() . '.' . $this->digest, true);
             $value = Helper::toSafeString($hash);
             return new Record('_acme-challenge.' . $this->getDomain(), $value);
+        }
+
+        return false;
+    }
+
+    public function getDnsPersistRecord(Account $account, bool $permitWildcard = false, $persistUntil = null)
+    {
+        $challenge = $this->getDnsPersistChallenge();
+        if ($challenge !== false) {
+            $name = '_validation-persist.' . $this->getDomain();
+            $value = [];
+            $issuerDomains = $challenge->getIssuerDomainNames();
+            if(empty($issuerDomains)){
+                throw new \InvalidArgumentException('No issuer domain names provided for DNS persist challenge.');
+            }
+            $value[] = $issuerDomains[0];
+            $value[] = 'accounturi=' . $account->getAccountURL();
+            if($permitWildcard){
+                $value[] = 'policy=wildcard';
+            }
+            if($persistUntil !== null){
+                $value[] = 'persistUntil=' . $persistUntil;
+            }
+            $value = implode('; ', $value);
+            return new Record($name, $value);
         }
 
         return false;

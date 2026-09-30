@@ -43,4 +43,14 @@ class Error
     {
         return $this->status;
     }
+
+    public function __toString()
+    {
+        return sprintf(
+            'Error[type=%s, detail=%s, status=%s]',
+            $this->type ?? 'null',
+            $this->detail ?? 'null',
+            $this->status ?? 'null'
+        );
+    }
 }

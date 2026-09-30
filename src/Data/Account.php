@@ -2,38 +2,36 @@
 
 namespace Afosto\Acme\Data;
 
+use Psr\Http\Message\ResponseInterface;
+
 class Account
 {
+    public const STATUS_VALID = 'valid';
+    public const STATUS_INVALID = 'deactivated';
+    public const STATUS_REVOKED = 'revoked';
+
     /**
      * @var string
      */
     protected $createdAt;
-
+    
     /**
-     * @var bool
+     * @var string
      */
-    protected $isValid;
+    protected $status;
 
     /**
      * @var string
      */
     protected $accountURL;
 
-
-    /**
-     * Account constructor.
-     * @param \DateTime $createdAt
-     * @param bool $isValid
-     * @param string $accountURL
-     */
     public function __construct(
-        \DateTime $createdAt,
-        bool $isValid,
-        string $accountURL
+        ResponseInterface $response
     ) {
-        $this->createdAt = $createdAt;
-        $this->isValid = $isValid;
-        $this->accountURL = $accountURL;
+        $data = json_decode((string)$response->getBody(), true);
+        $this->accountURL = $response->getHeaderLine('Location');
+        $this->createdAt = (new \DateTime())->setTimestamp(strtotime($data['createdAt']));
+        $this->status = $data['status'];
     }
 
     /**
@@ -64,11 +62,38 @@ class Account
     }
 
     /**
+     * Return the status for the account
+     * @return string
+     */
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+
+    /**
      * Returns validation status
+     * @return bool
+     */
+    public function isInvalid(): bool
+    {
+        return $this->status === self::STATUS_INVALID;
+    }
+
+    /**
+     * Returns revoked status
+     * @return bool
+     */
+    public function isRevoked(): bool
+    {
+        return $this->status === self::STATUS_REVOKED;
+    }
+
+    /**
+     * Returns valid status
      * @return bool
      */
     public function isValid(): bool
     {
-        return $this->isValid;
+        return $this->status === self::STATUS_VALID;
     }
 }
