@@ -150,7 +150,7 @@ class Authorization
      */
     public function getHttpChallenge()
     {
-        return $this->getChallenge(Challenge::VALIDATION_HTTP);
+        return $this->getChallenge(Challenge::TYPE_HTTP);
     }
 
     /**
@@ -158,7 +158,7 @@ class Authorization
      */
     public function getDnsChallenge()
     {
-        return $this->getChallenge(Challenge::VALIDATION_DNS);
+        return $this->getChallenge(Challenge::TYPE_DNS);
     }
 
     /**
