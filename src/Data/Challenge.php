@@ -2,13 +2,28 @@
 
 namespace Afosto\Acme\Data;
 
+use Afosto\Acme\Data\Challenge\Error as ChallengeError;
+
 class Challenge
 {
+    public const TYPE_DNS = 'dns-01';
+    public const TYPE_HTTP = 'http-01';
+    public const TYPE_TLS_ALPN = 'tls-alpn-01';
+    public const TYPE_DNS_PERSIST = 'dns-persist-01';
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_VALID = 'valid';
+    public const STATUS_INVALID = 'invalid';
 
     /**
      * @var string
      */
     protected $authorizationURL;
+
+    /**
+     * @var Authorization
+     */
+    protected $authorization;
 
     /**
      * @var string
@@ -28,23 +43,79 @@ class Challenge
     /**
      * @var string
      */
-    protected $token;
+    protected $token = '';
+
+    /**
+     * @var array<string>
+     */
+    protected $issuerDomainNames = [];
+
+    /** 
+     * @var null|ChallengeError
+     */
+    protected $error;
+
+    /**
+     * @var array|null
+     */
+    protected $validationRecord;
+
+    /**
+     * @var string|null
+     */
+    protected $validated;
 
     /**
      * Challenge constructor.
      * @param string $authorizationURL
-     * @param string $type
-     * @param string $status
-     * @param string $url
-     * @param string $token
+     * @param array $data
+     * @throws \InvalidArgumentException
      */
-    public function __construct(string $authorizationURL, string $type, string $status, string $url, string $token)
+    public function __construct(string $authorizationURL, array $data, Authorization $authorization)
     {
         $this->authorizationURL = $authorizationURL;
-        $this->type = $type;
-        $this->status = $status;
-        $this->url = $url;
-        $this->token = $token;
+        $this->authorization = $authorization;
+
+        switch($data['type'] ?? ''){
+            case self::TYPE_DNS:
+            case self::TYPE_HTTP:
+            case self::TYPE_TLS_ALPN:
+                $mandatoryData = [
+                    'type' => 'type',
+                    'status' => 'status',
+                    'url' => 'url',
+                    'token' => 'token'
+                ];
+                break;
+            case self::TYPE_DNS_PERSIST:
+                $mandatoryData = [
+                    'type' => 'type',
+                    'status' => 'status',
+                    'url' => 'url',
+                    'issuer-domain-names' => 'issuerDomainNames'
+                ];
+                break;
+            default:
+                throw new \InvalidArgumentException('Unsupported challenge type: ' . ($data['type'] ?? ''));
+        }
+        // mandatory data
+        foreach($mandatoryData as $attribute => $property){
+            if(!isset($data[$attribute])){
+                throw new \InvalidArgumentException('When constructing challenge object the $data array passed in must contain "'.$attribute.'". $data provided: '.json_encode($data));
+            }
+            $this->$property = $data[$attribute];         
+        }
+
+        // optional data
+        if(isset($data['error'])){
+            $this->error = new ChallengeError($data['error']);
+        }
+        if(isset($data['validationRecord'])){
+            $this->validationRecord = $data['validationRecord'];
+        }
+        if(isset($data['validated'])){
+            $this->validated = $data['validated'];
+        }
     }
 
     /**
@@ -83,6 +154,34 @@ class Challenge
         return $this->status;
     }
 
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isProcessing(): bool
+    {
+        return $this->status === self::STATUS_PROCESSING;
+    }
+
+    public function isValid(): bool
+    {
+        return $this->status === self::STATUS_VALID;
+    }
+
+    public function isInvalid(): bool
+    {
+        return $this->status === self::STATUS_INVALID;
+    }
+
+    /**
+     * @return array<string>
+     */
+    public function getIssuerDomainNames(): array
+    {
+        return $this->issuerDomainNames;
+    }
+
     /**
      * Returns authorization URL
      * @return string
@@ -90,5 +189,73 @@ class Challenge
     public function getAuthorizationURL(): string
     {
         return $this->authorizationURL;
+    }
+
+    /**
+     * Returns if the challenge has an error
+     * @return bool
+     */
+    public function hasError()
+    {
+        return $this->getError() !== null;
+    }
+
+    /**
+     * Returns the challenge error (if present)
+     * @return null|ChallengeError
+     */
+    public function getError()
+    {
+        return $this->error;
+    }
+
+    /**
+     * Returns if the record has a validation record
+     * @return bool
+     */
+    public function hasValidationRecord()
+    {
+        return $this->getValidationRecord() !== null;
+    }
+
+    /**
+     * Returns the validation record (if present)
+     * @return array|null
+     */
+    public function getValidationRecord()
+    {
+        return $this->validationRecord;
+    }
+
+    /**
+     * Returns the validation time for the challenge
+     * @return string|null
+     */
+    public function getValidated()
+    {
+        return $this->validated;
+    }
+
+    /**
+     * @return Record|File
+     */
+    public function getImplementation()
+    {
+        switch($this->type) {
+            case self::TYPE_DNS:
+                return $this->authorization->getTxtRecord();
+            case self::TYPE_DNS_PERSIST:
+                return $this->authorization->getDnsPersistRecord();
+            case self::TYPE_HTTP:
+                return $this->authorization->getFile();
+            default:
+                throw new \Exception('Challenge type not implemented: '.$this->type);
+        }
+
+    }
+
+    public function getAuthorization(): Authorization
+    {
+        return $this->authorization;
     }
 }
