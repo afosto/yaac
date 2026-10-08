@@ -21,6 +21,11 @@ class Challenge
     protected $authorizationURL;
 
     /**
+     * @var Authorization
+     */
+    protected $authorization;
+
+    /**
      * @var string
      */
     protected $type;
@@ -66,9 +71,10 @@ class Challenge
      * @param array $data
      * @throws \InvalidArgumentException
      */
-    public function __construct(string $authorizationURL, array $data)
+    public function __construct(string $authorizationURL, array $data, Authorization $authorization)
     {
         $this->authorizationURL = $authorizationURL;
+        $this->authorization = $authorization;
 
         switch($data['type'] ?? ''){
             case self::TYPE_DNS:
@@ -228,5 +234,28 @@ class Challenge
     public function getValidated()
     {
         return $this->validated;
+    }
+
+    /**
+     * @return Record|File
+     */
+    public function getImplementation()
+    {
+        switch($this->type) {
+            case self::TYPE_DNS:
+                return $this->authorization->getTxtRecord();
+            case self::TYPE_DNS_PERSIST:
+                return $this->authorization->getDnsPersistRecord();
+            case self::TYPE_HTTP:
+                return $this->authorization->getFile();
+            default:
+                throw new \Exception('Challenge type not implemented: '.$this->type);
+        }
+
+    }
+
+    public function getAuthorization(): Authorization
+    {
+        return $this->authorization;
     }
 }

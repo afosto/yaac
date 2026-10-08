@@ -48,8 +48,14 @@ class Authorization
      * @param string $digest
      * @throws \Exception
      */
-    public function __construct(ResponseInterface $response, $digest, $authorizationUrl)
-    {
+    public function __construct(
+        ResponseInterface $response,
+        $digest,
+        $authorizationUrl,
+        private Account $account,
+        private bool $allowWildcards = false,
+        private ?string $persistUntil = null
+    ){
         $data = json_decode((string)$response->getBody(), true);
         $this->domain = $data['identifier']['value'] ?? '';
         $this->expires = isset($data['expires']) ? (new \DateTime())->setTimestamp(strtotime($data['expires'])) : new \DateTime();
@@ -57,7 +63,7 @@ class Authorization
         $this->status = $data['status'] ?? '';
         $this->challenges = [];
         foreach($data['challenges'] ?? [] as $challengeData) {
-            $this->challenges[] = new Challenge($authorizationUrl, $challengeData);
+            $this->challenges[] = new Challenge($authorizationUrl, $challengeData, $this);
         }
     }
 
@@ -199,7 +205,7 @@ class Authorization
         return false;
     }
 
-    public function getDnsPersistRecord(Account $account, bool $permitWildcard = false, $persistUntil = null)
+    public function getDnsPersistRecord()
     {
         $challenge = $this->getDnsPersistChallenge();
         if ($challenge !== false) {
@@ -210,12 +216,12 @@ class Authorization
                 throw new \InvalidArgumentException('No issuer domain names provided for DNS persist challenge.');
             }
             $value[] = $issuerDomains[0];
-            $value[] = 'accounturi=' . $account->getAccountURL();
-            if($permitWildcard){
+            $value[] = 'accounturi=' . $this->account->getAccountURL();
+            if($this->allowWildcards){
                 $value[] = 'policy=wildcard';
             }
-            if($persistUntil !== null){
-                $value[] = 'persistUntil=' . $persistUntil;
+            if($this->persistUntil !== null){
+                $value[] = 'persistUntil=' . $this->persistUntil;
             }
             $value = implode('; ', $value);
             return new Record($name, $value);

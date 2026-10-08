@@ -50,6 +50,14 @@ class Client
      */
     const DIRECTORY_NEW_ORDER = 'newOrder';
 
+    public const CONFIG_USERNAME = 'username';
+    public const CONFIG_COUNTRY_NAME = 'country_name';
+    public const CONFIG_ACCOUNT_KEY = 'account_key';
+    public const CONFIG_FS = 'fs';
+    public const CONFIG_MODE = 'mode';
+    public const CONFIG_ALLOW_WILDCARDS = 'allow_wildcards';
+    public const CONFIG_PERSIST_UNTIL = 'persist_until';
+
     /**
      * @var string
      */
@@ -115,10 +123,14 @@ class Client
     public function __construct($config = [])
     {
         $this->config = $config;
-        if ($this->getOption('fs', false)) {
-            $this->filesystem = $this->getOption('fs');
+        if ($this->getOption(self::CONFIG_FS, false)) {
+            $this->filesystem = $this->getOption(self::CONFIG_FS);
         } else {
-            throw new \LogicException('No filesystem option supplied');
+            if($this->getOption(self::CONFIG_ACCOUNT_KEY)){
+                $this->accountKey = $this->getOption(self::CONFIG_ACCOUNT_KEY);
+            }else{
+                throw new \LogicException(sprintf('No filesystem (%s) or account key (%s) option supplied', self::CONFIG_FS, self::CONFIG_ACCOUNT_KEY));
+            }
         }
 
         if ($this->getOption('username', false) === false) {
@@ -211,7 +223,10 @@ class Client
                     $this->signPayloadKid(null, $authorizationURL)
                 ),
                 $this->getDigest(),
-                $authorizationURL
+                $authorizationURL,
+                $this->getAccount(),
+                $this->getOption(self::CONFIG_ALLOW_WILDCARDS, false),
+                $this->getOption(self::CONFIG_PERSIST_UNTIL, null)
             );
         }
         return $authorizations;
@@ -227,20 +242,25 @@ class Client
     public function selfTest(
         Authorization $authorization, 
         $type = Challenge::TYPE_HTTP, 
-        $maxAttempts = 15,
-        ?Account $account = null
+        $maxAttempts = 15
     ): bool {
         if ($type == Challenge::TYPE_HTTP) {
             return $this->selfHttpTest($authorization, $maxAttempts);
         } elseif ($type == Challenge::TYPE_DNS) {
             return $this->selfDNSTest($authorization, $maxAttempts);
         } elseif ($type == Challenge::TYPE_DNS_PERSIST) {
-            if(!$account) {
-                throw new \Exception('Account is required for DNS Persist self-test.');
-            }
-            return $this->selfDnsPersistTest($authorization, $maxAttempts, $account);
+            return $this->selfDnsPersistTest($authorization, $maxAttempts);
         }
         throw new \Exception('Unknown challenge type: ' . $type);
+    }
+
+    public function selfTestChallenge(Challenge $challenge, $maxAttempts = 15): bool
+    {
+        return $this->selfTest(
+            $challenge->getAuthorization(),
+            $challenge->getType(),
+            $maxAttempts
+        );
     }
 
     /**
@@ -276,12 +296,12 @@ class Client
         return (isset($data['status']) && $data['status'] == 'valid');
     }
 
-    public function getPrivateKey(): string
+    public function generatePrivateKey(): string
     {
         return Helper::getNewKey($this->getOption('key_length', 4096));
     }
 
-    public function getCsr(Order $order, $privateKey): string
+    public function generateCsr(Order $order, $privateKey): string
     {
         return  Helper::getCsr($order->getDomains(), $privateKey, $this->getOption('country_name', 'NL'));
     }
@@ -315,10 +335,7 @@ class Client
                 $this->signPayloadKid(null, $order->getCertificateURL())
             )
         );
-        $chain = $str = preg_replace('/^[ \t]*[\r\n]+/m', '', (string)$certificateResponse->getBody());
-        return new Certificate($privateKey, $csr, $chain);
     }
-
 
     /**
      * Return LE account information
@@ -445,10 +462,10 @@ class Client
      * @param $maxAttempts
      * @return bool
      */
-    protected function selfDnsPersistTest(Authorization $authorization, $maxAttempts, Account $account)
+    protected function selfDnsPersistTest(Authorization $authorization, $maxAttempts)
     {
         do {
-            $dnsRecord = $authorization->getDnsPersistRecord($account); 
+            $dnsRecord = $authorization->getDnsPersistRecord(); 
             $response = $this->getSelfTestDNSClient()->get(
                 '/dns-query',
                 [
@@ -509,16 +526,25 @@ class Client
 
     protected function loadKeys()
     {
-        //Make sure a private key is in place
-        if ($this->getFilesystem()->has($this->getPath('account.pem')) === false) {
-            $this->getFilesystem()->write(
-                $this->getPath('account.pem'),
-                Helper::getNewKey($this->getOption('key_length', 4096))
-            );
+        if($this->accountKey){
+            // validate supplied account key
+            $this->accountKey = openssl_pkey_get_private($this->accountKey);
+            $this->privateKeyDetails = openssl_pkey_get_details($this->accountKey);
+        }else{
+            if ($this->getFilesystem()->has($this->getPath('account.pem')) === false) {
+                $this->getFilesystem()->write(
+                    $this->getPath('account.pem'),
+                    Helper::getNewKey($this->getOption('key_length', 4096))
+                );
+            }
+            $privateKey = $this->getFilesystem()->read($this->getPath('account.pem'));
+            $this->accountKey = openssl_pkey_get_private($privateKey);
+            $this->privateKeyDetails = openssl_pkey_get_details($this->accountKey);
         }
-        $privateKey = $this->getFilesystem()->read($this->getPath('account.pem'));
-        $privateKey = openssl_pkey_get_private($privateKey);
-        $this->privateKeyDetails = openssl_pkey_get_details($privateKey);
+        //Make sure a private key is in place
+        if(!$this->privateKeyDetails){
+            throw new \LogicException('No valid private key found');
+        }
     }
 
     /**
@@ -565,6 +591,11 @@ class Client
     protected function getFilesystem(): Filesystem
     {
         return $this->filesystem;
+    }
+
+    protected function hasFileSystem(): bool
+    {
+        return $this->getFilesystem() !== null;
     }
 
     /**
@@ -662,15 +693,6 @@ class Client
      */
     protected function getAccountKey()
     {
-        if ($this->accountKey === null) {
-            $this->accountKey = openssl_pkey_get_private($this->getFilesystem()
-                ->read($this->getPath('account.pem')));
-        }
-
-        if ($this->accountKey === false) {
-            throw new \Exception('Invalid account key');
-        }
-
         return $this->accountKey;
     }
 
