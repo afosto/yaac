@@ -72,7 +72,7 @@ class Helper
      * @return string
      * @throws \Exception
      */
-    public static function getCsr(array $domains, $key): string
+    public static function getCsr(array $domains, $key, $countryName = 'NL'): string
     {
         $primaryDomain = current(($domains));
         $config = [
@@ -90,7 +90,7 @@ class Helper
         $fn = tempnam(sys_get_temp_dir(), md5(microtime(true)));
         file_put_contents($fn, implode("\n", $config));
         $csr = openssl_csr_new([
-            'countryName' => 'NL',
+            'countryName' => $countryName,
             'commonName'  => $primaryDomain,
         ], $key, [
             'config'         => $fn,

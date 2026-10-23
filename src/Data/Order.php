@@ -3,8 +3,15 @@
 
 namespace Afosto\Acme\Data;
 
+use Psr\Http\Message\ResponseInterface;
+
 class Order
 {
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_READY = 'ready';
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_VALID = 'valid';
+    public const STATUS_INVALID = 'invalid';
 
     /**
      * @var string
@@ -46,40 +53,34 @@ class Order
      */
     protected $certificateURL;
 
-    /**
-     * Order constructor.
-     * @param array $domains
-     * @param string $url
-     * @param string $status
-     * @param string $expiresAt
-     * @param array $identifiers
-     * @param array $authorizations
-     * @param string $finalizeURL
-     * @param string|null $certificateURL
-     * @throws \Exception
-     */
+    protected int $retryAfter = 0;
+    
     public function __construct(
-        array $domains,
-        string $url,
-        string $status,
-        string $expiresAt,
-        array $identifiers,
-        array $authorizations,
-        string $finalizeURL,
-        $certificateURL
+        ResponseInterface $response
     ) {
+
+        $data = json_decode((string)$response->getBody(), true);    
+        $this->domains = [];
+        foreach ($data['identifiers'] as $identifier) {
+            $this->domains[] = $identifier['value'];
+        }
+
+        $this->url = $response->getHeaderLine('location');
+        $this->status = $data['status'] ?? '';
+        $this->identifiers = $data['identifiers'] ?? [];
+        $this->authorizations = $data['authorizations'] ?? [];
+        $this->finalizeURL = $data['finalize'] ?? null;
+        $this->certificateURL = $data['certificate'] ?? null;
+
+
         //Handle the microtime date format
+        $expiresAt = $data['expiresAt'] ?? '';
         if (strpos($expiresAt, '.') !== false) {
             $expiresAt = substr($expiresAt, 0, strpos($expiresAt, '.')) . 'Z';
         }
-        $this->domains = $domains;
-        $this->url = $url;
-        $this->status = $status;
         $this->expiresAt = (new \DateTime())->setTimestamp(strtotime($expiresAt));
-        $this->identifiers = $identifiers;
-        $this->authorizations = $authorizations;
-        $this->finalizeURL = $finalizeURL;
-        $this->certificateURL = $certificateURL;
+
+        $this->retryAfter = (int) $response->getHeaderLine('Retry-After');
     }
 
 
@@ -119,6 +120,31 @@ class Order
         return $this->status;
     }
 
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isReady(): bool
+    {
+        return $this->status === self::STATUS_READY;
+    }
+
+    public function isProcessing(): bool
+    {
+        return $this->status === self::STATUS_PROCESSING;
+    }
+
+    public function isValid(): bool
+    {
+        return $this->status === self::STATUS_VALID;
+    }
+
+    public function isInvalid(): bool
+    {
+        return $this->status === self::STATUS_INVALID;
+    }
+
     /**
      * Returns expires at
      * @return \DateTime
@@ -152,7 +178,7 @@ class Order
      */
     public function getDomains(): array
     {
-        return $this->domains;
+        return $this->domains ?? [];
     }
 
     /**
@@ -161,5 +187,15 @@ class Order
     public function getCertificateURL()
     {
         return $this->certificateURL;
+    }
+
+    public function hasRetryAfter(): bool
+    {
+        return $this->retryAfter > 0;
+    }
+
+    public function getRetryAfter(): int
+    {
+        return $this->retryAfter;
     }
 }

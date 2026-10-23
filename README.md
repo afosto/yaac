@@ -20,13 +20,13 @@ useful in case you need to dynamically fetch and install certificates.
 
 - PHP7+
 - openssl
-- [Flysystem](http://flysystem.thephpleague.com/) (any adapter would do) - to store the Lets Encrypt account information
+- [Flysystem](http://flysystem.thephpleague.com/) (any adapter would do) to store the account key, or an existing PEM account key supplied with `account_key`
 
 
 ## Getting started
 
-Getting started is easy. First install the client, then you need to construct a flysystem filesystem, instantiate the 
-client and you can start requesting certificates.
+Getting started is easy. First install the client, then construct a Flysystem filesystem or provide an existing account
+key, instantiate the client and start requesting certificates.
 
 ### Installation
 
@@ -59,6 +59,8 @@ $client = new Client([
 ```
 
 While you instantiate the client, when needed a new Let’s Encrypt account is created and then agrees to the TOS.
+Instead of `fs`, you can provide an existing PEM private key using the `account_key` option. The client requires one of
+these two options.
 
 
 ### Create an order
@@ -67,6 +69,12 @@ To start retrieving certificates, we need to create an order first. This is done
 
 ```php
 $order = $client->createOrder(['example.org', 'www.example.org']);
+```
+
+Store the order ID if the process needs to resume later. The order can be fetched again with:
+
+```php
+$order = $client->getOrder($orderId);
 ```
 
 In the example above the primary domain is followed by a secondary domain(s). Make sure that for each domain you are 
@@ -119,6 +127,100 @@ foreach ($authorizations as $authorization) {
 }
 ```
 
+#### Persistent DNS challenges
+
+The client also supports persistent DNS challenges (`dns-persist-01`) when they are offered by the ACME server. Use
+`getDnsPersistChallenge()` to obtain one and `getDnsPersistRecord()` to get the TXT record that must be published:
+
+```php
+foreach ($authorizations as $authorization) {
+    $challenge = $authorization->getDnsPersistChallenge();
+    if ($challenge) {
+        $record = $authorization->getDnsPersistRecord();
+        // Publish a TXT record using $record->getName() and $record->getValue().
+    }
+}
+```
+
+The record value includes the issuer domain and ACME account URI. Client options `allow_wildcards` and `persist_until`
+can add `policy=wildcard` and `persistUntil=...` to the record value. Persistent challenges can be self-tested with
+`selfTestChallenge($challenge)` and submitted with `validate($challenge)` like other challenge types.
+
+#### End-to-end DNS example
+
+This pseudo-wrapper prefers a persistent DNS challenge and falls back to a temporary DNS challenge. Replace the
+`$dns` calls with your DNS provider's API. Keep persistent challenge records published; only temporary records are
+removed after issuance.
+
+```php
+use Afosto\Acme\Client;
+use Afosto\Acme\Data\Order;
+
+function waitForOrderStatus(Client $client, string $orderId, string $status): Order
+{
+    for ($attempt = 0; $attempt < 30; $attempt++) {
+        $order = $client->getOrder($orderId);
+        if ($order->isInvalid()) {
+            throw new RuntimeException('The ACME order became invalid.');
+        }
+        if ($order->getStatus() === $status) {
+            return $order;
+        }
+
+        sleep($order->hasRetryAfter() ? $order->getRetryAfter() : 2);
+    }
+
+    throw new RuntimeException('Timed out waiting for ACME order status: ' . $status);
+}
+
+$order = $client->createOrder(['example.org', 'www.example.org']);
+$orderId = $order->getId();
+$temporaryRecords = [];
+
+foreach ($client->authorize($order) as $authorization) {
+    $challenge = $authorization->getDnsPersistChallenge();
+    $isPersistent = $challenge !== false;
+    if (!$isPersistent) {
+        $challenge = $authorization->getDnsChallenge();
+    }
+    if (!$challenge) {
+        throw new RuntimeException('No supported DNS challenge is available.');
+    }
+
+    $record = $challenge->getImplementation();
+    $dns->ensureTxtRecord($record->getName(), $record->getValue());
+
+    if (!$client->selfTestChallenge($challenge)) {
+        throw new RuntimeException('The DNS challenge is not publicly visible.');
+    }
+    if (!$client->validate($challenge, 15)) {
+        throw new RuntimeException('The ACME server did not validate the challenge.');
+    }
+
+    if (!$isPersistent) {
+        $temporaryRecords[] = $record;
+    }
+}
+
+// Challenges are validated; wait until the order is ready to finalize.
+$order = waitForOrderStatus($client, $orderId, Order::STATUS_READY);
+$privateKey = $client->generatePrivateKey();
+$csr = $client->generateCsr($order, $privateKey);
+$client->finalize($order, $csr);
+
+// Finalization is asynchronous; refresh the order until the certificate is issued.
+$order = waitForOrderStatus($client, $orderId, Order::STATUS_VALID);
+$certificate = $client->getCertificate($order);
+
+foreach ($temporaryRecords as $record) {
+    $dns->deleteTxtRecord($record->getName(), $record->getValue());
+}
+```
+
+`ensureTxtRecord()` and `deleteTxtRecord()` above are illustrative DNS-provider wrapper methods. `selfTestChallenge()`
+checks public DNS visibility, while `validate()` submits the challenge and polls its authorization status. Order polling
+is separate: wait for `ready` before finalizing, then for `valid` before retrieving the certificate.
+
 
 ### Self test
 
@@ -127,7 +229,7 @@ be sure it works before asking Let's Encrypt to validate ownership.
 
 For a HTTP challenge test call:
 ```php
-if (!$client->selfTest($authorization, Client::VALIDATION_HTTP)) {
+if (!$client->selfTestChallenge($authorization->getHttpChallenge())) {
     throw new \Exception('Could not verify ownership via HTTP');
 }
 ```
@@ -135,7 +237,7 @@ if (!$client->selfTest($authorization, Client::VALIDATION_HTTP)) {
 For a DNS test call:
 
 ```php
-if (!$client->selfTest($authorization, Client::VALIDATION_DNS)) {
+if (!$client->selfTestChallenge($authorization->getDnsChallenge())) {
     throw new \Exception('Could not verify ownership via DNS');
 }
 sleep(30); // this further sleep is recommended, depending on your DNS provider, see below
@@ -168,8 +270,40 @@ foreach ($authorizations as $authorization) {
 }
 ```
 
+For a persistent DNS challenge, pass the challenge returned by `getDnsPersistChallenge()` to `validate()`.
+
 The code above will first perform a self test and, if successful, will do 15 attempts to ask Let’s Encrypt to validate the challenge (with 1 second intervals) and
 retrieve an updated status (it might take Let’s Encrypt a few seconds to validate the challenge).
+
+In the event the validation fails more detail can be found by interrogating the authorizations/challenges for example:
+```php
+$validated = $client->validate($authorization->getDnsChallenge(), 15);
+if(!$validated){
+    $authorizations = $client->authorize($order);
+    /** @var \Afosto\Acme\Data\Authorization $authorization */
+    foreach($authorizations as $authorization){
+        echo 'processing authorization for: '.$authorization->getDomain().PHP_EOL;
+        
+        /** @var \Afosto\Acme\Data\Challenge $challenge */
+        foreach($authorization->getChallenges() as $challenge){
+            echo 'processing challenge: '.$challenge->getToken().' ('.$challenge->getType().')'.PHP_EOL;
+            echo 'status: '.$challenge->getStatus().PHP_EOL;
+            if($challenge->hasError()){
+                echo 'error:'.PHP_EOL;
+                echo '    type: '.$challenge->getError()->getType().PHP_EOL;
+                echo '    status: '.$challenge->getError()->getStatus().PHP_EOL;
+                echo '    detail: '.$challenge->getError()->getDetail().PHP_EOL;
+            }
+            if($challenge->hasValidationRecord()){
+                echo 'validation record'.PHP_EOL.print_r($challenge->getValidationRecord(), true).PHP_EOL;
+            }
+            echo 'validated at: '.$challenge->getValidated().PHP_EOL;
+        }
+    }
+}
+```
+- The challenge error will give you information about: the specific error code, the response status code, a human description of the error
+- The validation record will give imformation about the request made to validate (endpoint, resolved address etc...)
 
 
 ### Get the certificate
