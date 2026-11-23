@@ -223,6 +223,11 @@ class Client
             $authorization = new Authorization($data['identifier']['value'], $data['expires'], $this->getDigest());
 
             foreach ($data['challenges'] as $challengeData) {
+                // challenges without a token (e.g. dns-persist-01) are not supported, skip them
+                // instead of failing on the whole authorization
+                if (!isset($challengeData['token'])) {
+                    continue;
+                }
                 $challenge = new Challenge(
                     $authorizationURL,
                     $challengeData['type'],
