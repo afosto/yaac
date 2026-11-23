@@ -188,6 +188,22 @@ We now know validation was completed and can obtain the certificate. This is don
 $certificate = $client->getCertificate($order);
 ```
 
+By default a new RSA key of `key_length` bits is generated for the certificate. To use another key,
+for example an ECDSA P-384 key, generate it yourself and pass it as a PEM string:
+
+```php
+$key = openssl_pkey_new([
+    'private_key_type' => OPENSSL_KEYTYPE_EC,
+    'curve_name'       => 'secp384r1',
+]);
+openssl_pkey_export($key, $pem);
+
+$certificate = $client->getCertificate($order, $pem);
+```
+
+This only affects the certificate key: the account key stays an RSA key, so `key_length` must remain
+a valid RSA key size (2048 or more).
+
 We now have the certificate, to store it on the filesystem:
 ```php
 //Store the certificate and private key where you need it
