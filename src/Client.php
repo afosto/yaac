@@ -291,13 +291,22 @@ class Client
     /**
      * Return a certificate
      *
+     * The certificate key is independent of the account key: pass your own PEM encoded
+     * private key (RSA or EC, e.g. an ECDSA P-384 key) to have it certified. When omitted,
+     * a new RSA key of `key_length` bits is generated, as before.
+     *
      * @param Order $order
+     * @param string|null $privateKey PEM encoded private key to use for the CSR
      * @return Certificate
      * @throws \Exception
      */
-    public function getCertificate(Order $order): Certificate
+    public function getCertificate(Order $order, $privateKey = null): Certificate
     {
-        $privateKey = Helper::getNewKey($this->getOption('key_length', 4096));
+        if ($privateKey === null) {
+            $privateKey = Helper::getNewKey($this->getOption('key_length', 4096));
+        } elseif (!is_string($privateKey) || openssl_pkey_get_private($privateKey) === false) {
+            throw new \InvalidArgumentException('The private key must be a PEM encoded private key');
+        }
         $csr = Helper::getCsr($order->getDomains(), $privateKey);
         $der = Helper::toDer($csr);
 
